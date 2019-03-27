@@ -103,7 +103,7 @@ Currently the event engine supports only linux epoll.
 
 
 ## License
-Levin is open source and relased under MIT license.
+Levin is open source and relased under BSD license.
 
 
 
