@@ -1,6 +1,7 @@
 # Levin:
-Levin is a minimal in-memory key value server where keys are stored
-in a [radix tree](https://en.wikipedia.org/wiki/Radix_tree).
+Levin is an in-memory key value server with fuzzy search
+capabilities, where keys are stored in a
+[radix tree](https://en.wikipedia.org/wiki/Radix_tree).
 
 ## Approximate key matching:
 Levin can find keys with a approximate search based on
@@ -87,6 +88,40 @@ suffix-length is under another user defined value.
 	    other_key [dist = 2 SUFFIX]: d4
 	    other [dist = 2]: d3
 
+
+## Building and Install:
+
+Build levin (can be compiled, at present, only in Linux due to epoll
+dependency):
+
+	make
+
+
+Start levin-server:
+
+	./levin
+
+Install levin-server:
+
+	sudo cp levin /usr/local/bin/
+
+Open levin-client console (only suitable for alphanumeric key without
+space and value without `\n`):
+
+	python client/levin.py
+
+Use levin-client in python:
+
+	import levin
+	client = levin.Client()
+	client.connect()
+	client.set('aerostat', 'some data...')
+	client.set('aerostatic', 'some other data...')
+	client.set('aerostatical', 'last')
+
+	print client.get('aerostat')
+	print client.lev('areostat', 2)
+	print client.lev('areostat', 2, 4)
 
 
 
