@@ -22,6 +22,10 @@
 
 import socket
 
+try:
+    xrange
+except NameError:
+    xrange = range
 
 class Request:
     def __init__(self, op):
@@ -32,13 +36,13 @@ class Request:
 
     def write(self, data, bit = None):
         if bit == 8:
-            self.stream.append(chr(data))
+            self.stream.append(data)
         elif bit == 32:
             # save int32 in big endian (most significant byte first)
             for s in (24, 16, 8, 0):
-                self.stream.append(chr((data >> s) & 0xFF))
+                self.stream.append((data >> s) & 0xFF)
         elif isinstance(data, str):
-            self.stream.extend(data)
+            self.stream.extend((ord(c) for c in data))
 
     def write_string(self, s):
         self.write(len(s), bit = 32)
@@ -153,13 +157,13 @@ class Client:
         for af, socktype, proto, canonname, saddr in res:
             try:
                 s = socket.socket(af, socktype, proto)
-            except socket.error, msg:
+            except socket.error as msg:
                 s = None
                 continue
     
             try:
                 s.connect(saddr)
-            except socket.error, msg:
+            except socket.error as msg:
                 s = None
                 continue
 
@@ -206,8 +210,8 @@ class Client:
 
 
     def send_request(self, request):
-        msg = str(request)
-   
+        msg = request.stream
+  
         nsend = 0 
         total = len(msg)
 
@@ -234,12 +238,12 @@ class Client:
 
         res = self.send_request(r)
 
-        kind = res[0:1] # NOTE: res is a bytearray, res[0] is an integer
+        kind = res[0]
         res = res[1:]
 
-        if kind == '@':
+        if kind == ord('@'):
             return True, res
-        elif kind == '!':
+        elif kind == ord('!'):
             return False, res
         else:
             raise Exception("unexpected get-response")
@@ -315,16 +319,16 @@ example:
     }
 
     def show_help():
-        print '\ncommands:'
+        print('\ncommands:')
 
         n = max((len(k) for k in commands)) + 4
 
         for k, v in commands.iteritems():
             if isinstance(v, dict):
-                print '- %s%s' % (k.ljust(n), '%s %s' % (k, v['p']))
-                print '  %s%s' % (' ' * n, v['d']) 
+                print('- %s%s' % (k.ljust(n), '%s %s' % (k, v['p'])))
+                print('  %s%s' % (' ' * n, v['d']) )
             else:
-                print '- %s%s' % (k.ljust(n), v)
+                print('- %s%s' % (k.ljust(n), v))
 
 
 
@@ -420,8 +424,8 @@ example:
     client = Client()
     client.connect()
 
-    print 'lev-in python client version 0.1'
-    print 'Type "help" for more information.'
+    print('lev-in python client version 0.1')
+    print('Type "help" for more information.')
 
     while True:
         if not argv:
@@ -448,14 +452,14 @@ example:
 
 
         if cm not in commands:
-            print 'unknow command: ' + cm
+            print('unknow command: %s' % cm)
             show_help()
             continue
 
         try:
             response = send_command(cm, args)
-            print '>>', response
-        except SyntaxError,e:
-            print 'syntax error: %s (use: %s)' % (e, commands[cm])
+            print('>> %s' % response)
+        except SyntaxError as e:
+            print('syntax error: %s (use: %s)' % (e, commands[cm]))
 
  
