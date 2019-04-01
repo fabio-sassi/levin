@@ -45,14 +45,11 @@
 #define ERR_USR     3            /* user error */
 #define EXCEPT_CLO  4            /* connection close exception */
 
-
 enum {
-	RESP_STR,
 	RESP_LST,
-	RESP_MSG
+	RESP_STR,
+	RESP_MSG,
 };
-
-
 
 enum {
 	FETCH_INT8 = 1,

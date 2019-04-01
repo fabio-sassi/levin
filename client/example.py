@@ -13,7 +13,11 @@ for n, word in enumerate(words):
     print 'set key="%s" value="%s"' % (word, data)
     client.set(word, data)
 
-print '\nget `alphabetic`...'
+print '\n*** get `alphabetic`...'
 print '  ', repr(client.get('alphabetic'))
-print '\nsearch `alfavetically`... '
+
+print '\n*** search `alfavetically`... '
 pprint.pprint(client.lev('alfavetically', 3))
+
+print '\n*** search `alfavet` with suffix-mode enable... '
+pprint.pprint(client.lev('alfavetic', 3, 10))

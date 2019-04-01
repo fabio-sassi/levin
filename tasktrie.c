@@ -128,12 +128,14 @@ ZMTASKDEF( tProcessGet )
 
 		if (ab_find(&lo, maintrie, k->data, k->length)) {
 			eaz_String *val = (eaz_String *)ab_get(&lo);
+			eaz_String *res = eaz_new(eaz_size(val) + 1);
 
-			val = eaz_dup(val, 0);
+			eaz_addChar(res, '@');
+			eaz_add(res, val);
 
-			zmresult = ARGZ("i>S", RESP_STR, val);
+			zmresult = ARGZ("i>S", RESP_STR, res);
 		} else {
-			zmresult = ARGZ("i>p", RESP_MSG, "key not found");
+			zmresult = ARGZ("i>p", RESP_MSG, "!key not found");
 		}
 
 		eaz_free(k);

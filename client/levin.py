@@ -232,7 +232,17 @@ class Client:
         r = Request(2)
         r.write_string(key)
 
-        return self.send_request(r)
+        res = self.send_request(r)
+
+        kind = res[0:1] # NOTE: res is a bytearray, res[0] is an integer
+        res = res[1:]
+
+        if kind == '@':
+            return True, res
+        elif kind == '!':
+            return False, res
+        else:
+            raise Exception("unexpected get-response")
 
 
     def lev(self, key, cost, maxsuffixlen = 0):
@@ -246,8 +256,9 @@ class Client:
 
 
 
-def simple_load(client, filename, frmt = lambda k, v: v or ''):
+def simple_load(client, filename):
     import os
+
     if not os.path.exists(filename):
         return 'file not found: ' + filename
 
@@ -255,13 +266,12 @@ def simple_load(client, filename, frmt = lambda k, v: v or ''):
         lines = f.read().split('\n')
         
         r = ''
-        for line in lines:
+        for n, line in enumerate(lines):
             line = line.strip()
             if line:
                 line = line.split(' ', 1)
                 k = line[0]
-                v = frmt(k, None if len(line) == 1 else line[1])
-                  
+                v = str(n) if len(line) == 1 else line[1]
                 r += 'load: set %s = %s ... ' % (k, v)
                 r += client.set(k, v)
                 r += '\n'
@@ -297,10 +307,6 @@ example:
             'p': "key [max-cost [max-prefix-len]]", 
             'd': "search all word within a Levensthein distance max-cost"
         },
-        'rand': {
-            'p': "{keylen|key} valuelen", 
-            'd': "set a (random) key with a random text"
-        },
         'load': {
             'p': "filename",
             'd': "load keys and values from filename",
@@ -319,32 +325,6 @@ example:
                 print '  %s%s' % (' ' * n, v['d']) 
             else:
                 print '- %s%s' % (k.ljust(n), v)
-
-
-
-    def rand_text(maxlen):
-        s = []
-        tot = maxlen
-
-        while tot > 0:
-            s.append( rand_word(4, 8) )
-            tot -= n
-
-        return ' '.join(s)
-
-
-    def rand_word(n = 4, maxlen = None):
-        n = random.randint(n, maxlen) if (maxlen and maxlen > n) else n 
-
-        def get(n):
-            c = ["bcdfghjklmnpqrstvwxyz", "aeiou"]
-            vowel = random.randint(0, 1)
-            while n > 0:
-                n -= 1
-                vowel = not vowel
-                yield random.choice(c[vowel])
-
-        return ''.join(get(n))
 
 
 
@@ -392,7 +372,10 @@ example:
 
             fetcharg(args, None);
 
-            response = client.get(k)
+            found, response = client.get(k)
+
+            if found:
+                response = repr(str(response))
 
         # SET key value
         elif cm == 'set':
@@ -411,23 +394,10 @@ example:
                             
             response = client.lev(k, cost, maxsufflen)
 
-        # RAND key value
-        elif cm == 'rand':
-            k, args = fetcharg(args, 'k')
-            v, args = fetcharg(args, 'i')
-            
-            fetcharg(args, None);
-        
-            k = k if not k.isdigit() else rand_word(int(k))
-            v =  rand_text(v)
-
-            response = client.set(k, v)
-
         elif cm == 'load':
             filename, args = fetcharg(args, 'D')
            
-            fmt = lambda k, v: v or rand_word(4,9)
-            response = simple_load(client, filename, frmt = fmt)
+            response = simple_load(client, filename)
         else:
             response = 'unknow command: ' + cm
 
@@ -436,10 +406,11 @@ example:
 
         lst = response
         lst.sort(key = lambda x: x['lev'])
-        response = 'nresult = %s\n' % len(lst) 
+        response = 'nresult = %s\n' % len(lst)
         for r in lst:
-            r['x'] = ' SUFFIX' if r['suffix'] else ''
-            response += '    %(word)s [dist = %(lev)s%(x)s]: %(data)s\n' % r
+            r['x'] = ' suffix, ' if r['suffix'] else ''
+            r['data'] = repr(str(r['data']))
+            response += '    %(word)s (dist=%(lev)s,%(x)s val=%(data)s)\n' % r
 
         return response
 
