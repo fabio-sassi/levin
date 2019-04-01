@@ -1,5 +1,5 @@
 #FLAG = -g -std=c99 -Wall -DZM_DEBUG_LEVEL=0 -DLEVIN_DEBUG=1
-FLAG = -g -std=c99 -Wall -DLEVIN_DEBUG=4
+FLAG = -g -std=c99 -Wall -DLEVIN_DEBUG=0
 
 EALIB_H = lib/ea.h lib/eak_stack.h lib/eaz_str.h lib/eab_note.h lib/ea_type.h
 EALIB_C = lib/ea.c lib/eak_stack.c lib/eaz_str.c lib/eab_note.c lib/ea_type.c

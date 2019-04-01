@@ -22,6 +22,8 @@
 
 import socket
 
+VERSION = 0.2
+
 try:
     xrange
 except NameError:
@@ -424,7 +426,7 @@ example:
     client = Client()
     client.connect()
 
-    print('lev-in python client version 0.1')
+    print('lev-in python client version %s' % VERSION)
     print('Type "help" for more information.')
 
     while True:

@@ -110,7 +110,7 @@ space and value without `\n`):
 
 	python client/levin.py
 
-Use levin-client in python:
+Use levin-client in python2/python3:
 
 	import levin
 	client = levin.Client()

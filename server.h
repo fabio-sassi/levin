@@ -39,7 +39,7 @@
 #include "zm.h"
 #include "log.h"
 
-#define LEVIN_VERSION "0.1"
+#define LEVIN_VERSION "0.2"
 
 #define PORT 5210
 #define LISTEN_BACKLOG 50
