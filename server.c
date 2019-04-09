@@ -33,7 +33,7 @@
 #include <signal.h>
 #include <string.h>
 
-#include "lib/ev.h"
+#include "lib/ew.h"
 #include "lib/io.h"
 #include "server.h"
 #include "taskprocess.h"
@@ -58,13 +58,13 @@ void connClose(int fd)
 {
 	DBG1 report("close connection socket user=%d", fd);
 
-	ev_del(evfd, fd);
+	ew_del(evfd, fd);
 
 	io_closeConnectionSocket(fd);
 }
 
 
-static void connOpen(zm_VM* vm, ev_Event *event)
+static void connOpen(zm_VM* vm)
 {
 	/* cycle on all pending request */
 	while(true) {
@@ -78,14 +78,14 @@ static void connOpen(zm_VM* vm, ev_Event *event)
 
 		prtask = zm_newTasklet(vm, tProcess, &socket);
 
-		ev_add(evfd, socket, EV_IN | EV_OUT, (void*)prtask);
+		ew_add(evfd, socket, EW_IN | EW_OUT, (void*)prtask);
 	}
 }
 
 
-static void connIO(zm_VM* vm, ev_Event *event)
+static void connIO(zm_VM* vm, ew_Event *event)
 {
-	zm_State *prtask = (zm_State*)ev_data(event);
+	zm_State *prtask = (zm_State*)ew_data(event);
 
 	DBG4 report("connIO - event on a connection socket");
 
@@ -98,16 +98,16 @@ static void connIO(zm_VM* vm, ev_Event *event)
 }
 
 
-static void processEvents(zm_VM* vm, ev_Event *events, int n)
+static void processEvents(zm_VM* vm, ew_Event *events, int n)
 {
 	for (int i = 0; i < n; i++) {
-		ev_Event *event = events + i;
+		ew_Event *event = events + i;
 
 		DBG4 report("main - event[%d/%d]: %s", i+1, n,
-		              ev_flags(event));
+		              ew_flags(event));
 
-		if (ev_data(event) == NULL)
-			connOpen(vm, event);
+		if (ew_data(event) == NULL)
+			connOpen(vm);
 		else
 			connIO(vm, event);
 	}
@@ -164,9 +164,9 @@ static void closeListenSocket()
 	if (evfd) {
 		DBG0 report("unregister listen socket");
 		if (listensocket)
-			ev_del(evfd, listensocket);
+			ew_del(evfd, listensocket);
 
-		ev_free(evfd);
+		ew_free(evfd);
 		evfd = 0;
 	}
 
@@ -182,13 +182,14 @@ static void initListenSocket()
 {
 	const char *ip = "127.0.0.1";
 
-	evfd = ev_new();
+	evfd = ew_new();
 
 	DBG0 report("opening listen socket at %s:%d", ip, PORT);
 
 	listensocket = io_createListenSocket(ip, PORT, LISTEN_BACKLOG);
 
-	ev_add(evfd, listensocket, EV_IN | EV_OUT, NULL);
+	ew_add(evfd, listensocket, EW_LISTEN | EW_IN | EW_OUT,
+	       (void*)LISTEN_BACKLOG);
 
 	atexit(closeListenSocket);
 }
@@ -242,7 +243,7 @@ static const char *shutdownReason(int code)
 
 static void mainLoop(zm_VM *vm)
 {
-	int towait = -1;  // -1 = block wait - 0 non-block wait
+	int towait = -1;  // -1 = block wait - 0 = pool
 
 	initListenSocket();
 
@@ -251,12 +252,12 @@ static void mainLoop(zm_VM *vm)
 	DBG0 report("server ready");
 
 	while (!shutdown) {
-		ev_Event events[MAX_EVENTS];
+		ew_Event events[MAX_EVENTS];
 		int n;
 
 		DBG3 report("main - ************* waiting *************");
 
-		n = ev_wait(evfd, events, MAX_EVENTS, towait);
+		n = ew_wait(evfd, events, MAX_EVENTS, towait);
 
 		if (shutdown)
 			break;

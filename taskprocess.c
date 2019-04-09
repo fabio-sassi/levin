@@ -68,7 +68,6 @@ ZMTASKDEF( tFetchIter )
 
 		union {
 			char b32[4];
-			uint32_t uint;
 			char *ptr;
 		} data;
 
@@ -97,17 +96,15 @@ ZMTASKDEF( tFetchIter )
 
 	zmstate FETCH: arg_in(zmarg, "i | fetchmode");
 	{
-		DBG4 report("FETCH");
+		DBG4 report("FETCH...");
 
 		int kind = arg_i(zmarg);
 
-		self->data.uint = 0;
 		self->integer = kind;
 
 		switch(kind) {
 		case FETCH_INT8: self->size = 1; break;
-		case FETCH_INT16:
-		case FETCH_INT16N: self->size = 2; break;
+		case FETCH_INT16: self->size = 2; break;
 		case FETCH_INT32: self->size = 4; break;
 		case FETCH_STR:
 			arg_in(zmarg, "i | fetchsize");
@@ -174,31 +171,37 @@ ZMTASKDEF( tFetchIter )
 	zmstate RETURN_INT:
 	{
 		arg_Arg *ar  = self->argz;
+		uint32_t r = 0;
 
-		DBG4 report("RETURN_INT");
+
+		DBG4 report("RETURN_INT %d %d %d %d", self->data.b32[0],
+		            self->data.b32[1],
+		            self->data.b32[2],
+		            self->data.b32[3]);
 
 		switch(self->integer) {
 		case FETCH_INT8:
-			arg_set(ar, "u8", self->data.uint);
+			r = self->data.b32[0];
+			DBG4 report("set u8 = %d", r);
+			arg_set(ar, "u8", r);
 			break;
 		case FETCH_INT16:
-			self->data.uint = ntohs(self->data.uint);
-			arg_set(ar, "u16", self->data.uint);
-			break;
-		case FETCH_INT16N:
-			self->data.uint = self->data.uint;
-			arg_set(ar, "u16", self->data.uint);
+			r = (self->data.b32[0] << 8) + self->data.b32[1];
+			arg_set(ar, "u16", r);
 			break;
 		case FETCH_INT32:
-			self->data.uint = ntohl(self->data.uint);
-			arg_set(ar, "u32", self->data.uint);
+			r = (self->data.b32[0] << 24);
+			r += (self->data.b32[1] << 16);
+			r += (self->data.b32[2] << 8);
+			r += self->data.b32[3];
+			arg_set(ar, "u32", r);
 			break;
 
 		default:
 			ea_fatal("ifetch: wrong size %d", self->size);
 		}
 
-		DBG4 report("integer(%d) = %d", self->size, self->data.uint);
+		DBG4 report("integer(%d) = %d", self->size, r);
 
 		zmresult = ar;
 
@@ -411,12 +414,14 @@ ZMTASKDEF( tProcess )
 	{
 		int kind = arg_i(zmarg);
 		eaz_String *instr = NULL, *out;
-		char *data;
+		char *data = NULL;
 		int len;
 
+		DBG4 report("RESP...");
 		switch(kind) {
 		case RESP_STR:
 		case RESP_LST:
+			DBG4 report("RESP - STR,LST");
 			instr = arg_S(zmarg);
 			data = instr->data;
 			len = instr->length;
@@ -424,6 +429,7 @@ ZMTASKDEF( tProcess )
 			break;
 
 		case RESP_MSG:
+			DBG4 report("RESP - MSG");
 			data = (char*)arg_p(zmarg);
 			len = strlen(data);
 			DBG4 report("!set response: %s", data);
@@ -431,6 +437,7 @@ ZMTASKDEF( tProcess )
 
 		default:
 			ea_fatal("resp_new: unknow response kind %d", kind);
+			zmyield zmTERM;
 		}
 
 		DBG3 report("send response (%d bytes)", len + 5);

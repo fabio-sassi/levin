@@ -57,16 +57,16 @@ const char* ea_typeName(int type)
 void ea_fprintValue(FILE *stream, ea_Type *t)
 {
 	switch(t->type) {
-		EA_PRINT_TYPE(EA_TYPE_UNDEFINED, "<undefined@%lx>", i64);
+		EA_PRINT_TYPE(EA_TYPE_UNDEFINED, "<undefined@%" PRIu64 "x>", u64);
 		EA_PRINT_TYPE(EA_TYPE_U8,     "%d",   u8  );
 		EA_PRINT_TYPE(EA_TYPE_U16,    "%d",   u16 );
 		EA_PRINT_TYPE(EA_TYPE_U32,    "%d",   u32 );
-		EA_PRINT_TYPE(EA_TYPE_U64,    "%ld",  u64 );
+		EA_PRINT_TYPE(EA_TYPE_U64,    "%" PRIu64 "d",  u64 );
 		EA_PRINT_TYPE(EA_TYPE_I8,     "%d",   i8  );
 		EA_PRINT_TYPE(EA_TYPE_I16,    "%d",   i16 );
 		EA_PRINT_TYPE(EA_TYPE_I32,    "%d",   i32 );
-		EA_PRINT_TYPE(EA_TYPE_I64,    "%ld",  i64 );
-		EA_PRINT_TYPE(EA_TYPE_SIZE,   "%ld",  z   );
+		EA_PRINT_TYPE(EA_TYPE_I64,    "%" PRId64 "d",  i64 );
+		EA_PRINT_TYPE(EA_TYPE_SIZE,   "%zd",  z   );
 		EA_PRINT_TYPE(EA_TYPE_CHAR,   "%c",   c   );
 		EA_PRINT_TYPE(EA_TYPE_INT,    "%d",   i   );
 		EA_PRINT_TYPE(EA_TYPE_UINT,   "%d",   u   );
@@ -78,7 +78,7 @@ void ea_fprintValue(FILE *stream, ea_Type *t)
 			fprintf(stream, ")");
 			break;
 		case EA_TYPE_POINTER:
-			fprintf(stream, "<pntr@%lx>", (size_t)t->value.p);
+			fprintf(stream, "<pntr@%zx>", (size_t)t->value.p);
 			break;
 	}
 }

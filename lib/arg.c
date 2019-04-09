@@ -50,7 +50,7 @@ void arg_fprintValue(FILE *f, arg_Type *t)
 
 	switch(t->type) {
 		case ARG_EXT_TYPE_KP:
-			fprintf(f, "%s 0x%lx", t->name, (size_t)t->value.p);
+			fprintf(f, "%s 0x%zx", t->name, (size_t)t->value.p);
 			return;
 	}
 }
@@ -317,58 +317,6 @@ static void arg_groupFlush(arg_Arg *a)
 }
 
 
-static void arg_setValue(arg_Type *t, va_list vlst, int type)
-{
-	t->type = type;
-	t->name = NULL;
-
-	switch (t->type) {
-	case ARG_EXT_TYPE_KP: {
-		t->name = va_arg(vlst, const char*);
-		t->value.p = va_arg(vlst, void*);
-		break;
-	}
-	case EA_TYPE_STR:
-		t->value.S = (eaz_String*)va_arg(vlst, void*);
-		break;
-
-	case EA_TYPE_P: {
-		t->value.p = va_arg(vlst, void*);
-		break;
-	}
-	case EA_TYPE_C:
-		t->value.c = (char)va_arg(vlst, int);
-		break;
-	case EA_TYPE_F:
-		t->value.f = (float)va_arg(vlst, double);
-		break;
-	case EA_TYPE_E:
-		t->value.e = va_arg(vlst, double);
-		break;
-	case EA_TYPE_U:
-		t->value.u = va_arg(vlst, unsigned int);
-		break;
-	case EA_TYPE_I:
-		t->value.i = va_arg(vlst, int);
-		break;
-	case EA_TYPE_Z:
-	case EA_TYPE_U8:
-	case EA_TYPE_U16:
-	case EA_TYPE_U32:
-	case EA_TYPE_U64:
-		t->value.u64 = va_arg(vlst, unsigned long long int);
-		break;
-	case EA_TYPE_I8:
-	case EA_TYPE_I16:
-	case EA_TYPE_I32:
-	case EA_TYPE_I64:
-		t->value.i64 = va_arg(vlst, long long int);
-		break;
-	default:
-		arg_fatal(NULL, "unknow type %d", type);
-		break;
-	}
-}
 
 
 static void arg_validateType(arg_Arg *a, int type, int chk, const char *label)
@@ -503,20 +451,96 @@ arg_Arg *arg_set(arg_Arg *a, const char *dsc, ...)
 	va_start(vlst, dsc);
 	while(true) {
 		arg_Type *t = g->arguments + g->narg;
-		int type = arg_fetch(dsc, &i);
+		t->type = arg_fetch(dsc, &i);
+		t->name = NULL;
 
-		if (type == ARG_FETCH_END)
+		if (t->type == ARG_FETCH_END)
 			break;
 
-		if (type == ARG_FETCH_PUSH) {
+		if (t->type == ARG_FETCH_PUSH) {
 			g = arg_groupPush(a, dsc + i);
 			continue;
 		}
 
-		arg_setValue(t, vlst, type);
+		switch (t->type) {
+		case ARG_EXT_TYPE_KP:
+			t->name = va_arg(vlst, const char*);
+			t->value.p = va_arg(vlst, void*);
+			break;
 
+		case EA_TYPE_STR:
+			t->value.S = (eaz_String*)va_arg(vlst, void*);
+			break;
+
+		case EA_TYPE_P:
+			t->value.p = va_arg(vlst, void*);
+			break;
+
+		case EA_TYPE_C:
+			t->value.c = (char)va_arg(vlst, int);
+			break;
+
+		case EA_TYPE_F:
+			t->value.f = (float)va_arg(vlst, double);
+			break;
+
+		case EA_TYPE_E:
+			t->value.e = va_arg(vlst, double);
+			break;
+
+		case EA_TYPE_U:
+			t->value.u = va_arg(vlst, unsigned int);
+			break;
+
+		case EA_TYPE_I:
+			t->value.i = va_arg(vlst, int);
+			break;
+
+		case EA_TYPE_U8:
+			t->value.u8 = va_arg(vlst, unsigned int);
+			break;
+
+		case EA_TYPE_U16:
+			t->value.u16 = va_arg(vlst, unsigned int);
+			break;
+
+		case EA_TYPE_U32:
+			t->value.u32 = va_arg(vlst, unsigned long);
+			break;
+
+		case EA_TYPE_Z: /* FIXME this is wrong */
+		case EA_TYPE_U64:
+			t->value.u64 = va_arg(vlst, unsigned long long);
+			break;
+
+		case EA_TYPE_I8:
+			t->value.i8 = va_arg(vlst, int);
+			break;
+
+		case EA_TYPE_I16:
+			t->value.i16 = va_arg(vlst, int);
+			break;
+
+		case EA_TYPE_I32:
+			t->value.i32 = va_arg(vlst, long);
+			break;
+
+		case EA_TYPE_I64:
+			t->value.i64 = va_arg(vlst, long long int);
+			break;
+
+		default:
+			arg_fatal(NULL, "unknow type %d", t->type);
+			break;
+		}
 		g->narg++;
 
+#if 0
+		printf("[again] t->value.u32 = %d\n", t->value.u32);
+		printf("val = ");
+		arg_fprintValue(stdout, t);
+		printf("[again 2] t->value.u32 = %d\n", t->value.u32);
+#endif
 		if (g->narg >= ARG_NARG)
 			arg_fatal(a, "arg_set(\"%s\"): "
 			          "too much parameters (max %d)",
@@ -524,6 +548,11 @@ arg_Arg *arg_set(arg_Arg *a, const char *dsc, ...)
 	}
 	va_end(vlst);
 
+#if 0
+	printf("DEBUG - BEGIN\n ");
+	arg_info(stdout, a);
+	printf("DEBUG - END\n");
+#endif
 	return a;
 }
 

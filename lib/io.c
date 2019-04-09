@@ -26,9 +26,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <errno.h>
 
 #include "ea.h"
@@ -56,7 +56,7 @@ static void io_reuseAddr(int fd)
 }
 
 
-int io_createListenSocket(const char *ip, uint16_t port, int backlog)
+int io_createListenSocket(const char *ip, int port, int backlog)
 {
 	struct sockaddr_in addr;
 	int socketfd;
@@ -66,7 +66,7 @@ int io_createListenSocket(const char *ip, uint16_t port, int backlog)
 	if (socketfd == -1)
 		ea_pfatal("cannot create socket");
 
-	memset(&addr, 0, sizeof(struct sockaddr_in));
+	memset(&addr, 0, sizeof(addr));
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
@@ -76,8 +76,7 @@ int io_createListenSocket(const char *ip, uint16_t port, int backlog)
 
 	io_reuseAddr(socketfd);
 
-	if (bind(socketfd, (struct sockaddr *) &addr,
-	         sizeof(struct sockaddr_in)) == -1) {
+	if (bind(socketfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 		   ea_pfatal("error in socket binding");
 	}
 

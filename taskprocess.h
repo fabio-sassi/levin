@@ -54,7 +54,6 @@ enum {
 enum {
 	FETCH_INT8 = 1,
 	FETCH_INT16,
-	FETCH_INT16N,
 	FETCH_INT32,
 	FETCH_STR
 };

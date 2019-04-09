@@ -332,7 +332,8 @@ ZMTASKDEF( tLevenshtein )
 				resPush(search, value, self->suffdist, true);
 
 			if (godeep) {
-				int slen = search->word->length + search->maxsuflen;
+				int slen = search->word->length +
+				           search->maxsuflen;
 				godeep = (self->deep + 1) < slen;
 			}
 		} else {
@@ -441,7 +442,7 @@ ZMTASKDEF( tProcessLev )
 
 		DBG4 report("PLEV rowlen = %d", self->rowlen);
 
-		zmyield zmSUB(root->ifetch, ARGZ("i", FETCH_INT16N)) |
+		zmyield zmSUB(root->ifetch, ARGZ("i", FETCH_INT16)) |
 		                                  zmNEXT(PLEV_SEARCH);
 	}
 

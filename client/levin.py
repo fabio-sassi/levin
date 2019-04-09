@@ -22,7 +22,7 @@
 
 import socket
 
-VERSION = 0.2
+VERSION = 0.3
 
 try:
     xrange
@@ -39,6 +39,10 @@ class Request:
     def write(self, data, bit = None):
         if bit == 8:
             self.stream.append(data)
+        elif bit == 16:
+             # save int16 in big endian (most significant byte first)
+            for s in (8, 0):
+                self.stream.append((data >> s) & 0xFF)
         elif bit == 32:
             # save int32 in big endian (most significant byte first)
             for s in (24, 16, 8, 0):
@@ -252,10 +256,17 @@ class Client:
 
 
     def lev(self, key, cost, maxsuffixlen = 0):
+        if cost > 255:
+            raise Exception("lev cost cannot be > 255")
+
+        if maxsuffixlen > 255:
+            raise Exception("lev suffix cannot be > 255")
+
         r = Request(3)
         r.write_string(key)
-        r.write(cost, bit = 8)
+        # write cost + (maxsuffixlen << 8),  bit = 16
         r.write(maxsuffixlen, bit = 8)
+        r.write(cost, bit = 8)
 
         return self.send_request(r)
 

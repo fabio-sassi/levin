@@ -91,8 +91,7 @@ suffix-length is under another user defined value.
 
 ## Building and Install:
 
-Build levin (can be compiled, at present, only in Linux due to epoll
-dependency):
+Levin can be build in Linux and FreeBSD:
 
 	make
 
@@ -105,8 +104,7 @@ Install levin-server:
 
 	sudo cp levin /usr/local/bin/
 
-Open levin-client console (only suitable for alphanumeric key without
-space and value without `\n`):
+Open levin-client console (can set only alphanumeric key):
 
 	python client/levin.py
 
@@ -117,13 +115,13 @@ Use levin-client in python2/python3:
 	client.connect()
 	client.set('aerostat', 'some data...')
 	client.set('aerostatic', 'some other data...')
-	client.set('aerostatical', 'last')
+	client.set('aerostatical', 'binary data \x08\x80\x7f')
+	client.set('aerostatical dog', 'last')
 
-	print client.get('aerostat')
-	print client.lev('areostat', 2)
-	print client.lev('areostat', 2, 4)
-
-
+	print(client.get('aerostat'))
+	print(client.lev('areostat', 2))
+	print(client.lev('areostat', 2, 4))
+	print(client.lev('areostat', 2, 10))
 
 ## Architecture:
 Levin is written in C99 and use event driven model with
@@ -134,8 +132,8 @@ concurrency.
 `set` are perfomed in an atomic way to avoid race
 condition.
 
-Currently the event engine supports only linux epoll.
-
+Currently the event engine supports epoll (Linux) 
+and kqueue (BSD based systems).
 
 ## License
 Levin is open source and relased under BSD license.

@@ -21,13 +21,37 @@
  * SOFTWARE.
  */
 
-#ifndef __MYTRIE_IO_H__
-#define __MYTRIE_IO_H__
+#ifndef __EVENT_WRAPPER_LIB__
+#define __EVENT_WRAPPER_LIB__
 
-int io_createListenSocket(const char *ip, int port, int backlog);
-void io_closeListenSocket(int socket);
+/* wrapping for trigger event notification system */
 
-int io_createConnectionSocket(int listensocket);
-void io_closeConnectionSocket(int fd);
+#ifdef __linux__
+	#include <sys/epoll.h>
+	typedef struct epoll_event ew_Event;
+#else
+	#ifdef __sun
+		#error "SunOS is not supported"
+	#endif
+	#include <sys/event.h> /* kqueue */
+	typedef struct kevent ew_Event;
+#endif
+
+#define EW_IN      1
+#define EW_OUT     2
+#define EW_LISTEN  4
+
+
+int ew_new();
+void ew_free(int efd);
+
+int ew_has(ew_Event *ev, int flag);
+void* ew_data(ew_Event *ev);
+const char* ew_flags(ew_Event *ev);
+
+void ew_add(int efd, int sock, int flag, void *ptr);
+void ew_del(int efd, int sock);
+
+int ew_wait(int epfd, ew_Event *events, int maxevents, int timeout);
 
 #endif

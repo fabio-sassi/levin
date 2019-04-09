@@ -21,29 +21,31 @@
  * SOFTWARE.
  */
 
-#ifndef __EVENT_WRAPPER_LIB__
-#define __EVENT_WRAPPER_LIB__
-
-/* minimal wrapping for trigger event notification system */
-
-#include <sys/epoll.h>
-
-#define EV_IN EPOLLIN
-#define EV_OUT EPOLLOUT
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include "ea.h"
+#include "ew.h"
 
 
-typedef struct epoll_event ev_Event;
-
-int ev_new();
-void ev_free(int efd);
-
-int ev_has(ev_Event *ev, int flag);
-void* ev_data(ev_Event *ev);
-const char* ev_flags(ev_Event *ev);
-
-void ev_add(int efd, int sock, int flag, void *ptr);
-void ev_del(int efd, int sock);
-
-int ev_wait(int epfd, ev_Event *events, int maxevents, int timeout);
-
+#ifdef __linux__
+	#include "ew_epoll.c"
+#else
+	#include "ew_kqueue.c"
 #endif
+
+
+const char* ew_flags(ew_Event *ev)
+{
+	int out = ew_has(ev, EW_OUT);
+	int in = ew_has(ev, EW_IN);
+
+	if (in && out)
+		return "EW_IN, EW_OUT";
+	else if (in)
+		return "EW_IN";
+	else if (out)
+		return "EW_OUT";
+
+	return "";
+}

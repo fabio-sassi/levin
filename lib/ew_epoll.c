@@ -24,59 +24,72 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
-
 #include "ea.h"
-#include "ev.h"
-
-/*---------------------------------------------------------------------------
- *  epoll and socket
- *  -----------------------------------------------------------------------*/
+#include "ew.h"
 
 
-int ev_has(ev_Event *ev, int flag)
+
+int ew_has(ew_Event *ev, int ewflag)
 {
-	return ((struct epoll_event*)ev)->events & flag;
+	int flag = ((struct epoll_event*)ev)->events;
 
+	if (ewflag & EW_IN)
+		return (flag & EPOLLIN);
+
+	if (ewflag & EW_OUT)
+		return (flag & EPOLLOUT);
+
+	ea_fatal("ew_has: only accepted flags are EW_IN or EW_OUT");
+
+	return  0;
 }
 
-void* ev_data(ev_Event *ev)
+void* ew_data(ew_Event *ev)
 {
 	return ((struct epoll_event*)ev)->data.ptr;
 
 }
 
-void ev_del(int efd, int fd)
+void ew_del(int efd, int fd)
 {
 	if (epoll_ctl(efd, EPOLL_CTL_DEL, fd, NULL) == -1)
-		ea_pfatal("ev_del: error in epoll_ctl del");
+		ea_pfatal("ew_del: error in epoll_ctl del");
 }
 
-void ev_add(int efd, int fd, int flag, void *ptr)
+void ew_add(int efd, int fd, int ewflag, void *ptr)
 {
 	struct epoll_event ev;
+	int flag = 0;
+
+	if (ewflag & EW_IN)
+		flag |= EPOLLIN;
+
+	if (ewflag & EW_OUT)
+		flag |= EPOLLOUT;
+
 	ev.events = flag | EPOLLET;
-	ev.data.ptr = ptr;
+	ev.data.ptr = (ewflag & EW_LISTEN) ? NULL : ptr;
 
 	if (epoll_ctl(efd, EPOLL_CTL_ADD, fd, &ev) == -1)
-		ea_pfatal("ev_add: error in epoll_ctl add");
+		ea_pfatal("ew_add: error in epoll_ctl add");
 }
 
-int ev_new()
+int ew_new()
 {
 	int epollfd = epoll_create(1);
 
 	if (epollfd == -1)
-		ea_pfatal("ev_new: error in epoll_create");
+		ea_pfatal("ew_new: error in epoll_create");
 
 	return epollfd;
 }
 
-void ev_free(int epfd)
+void ew_free(int epfd)
 {
 	close(epfd);
 }
 
-int ev_wait(int epfd, ev_Event *evs, int maxevents, int timeout)
+int ew_wait(int epfd, ew_Event *evs, int maxevents, int timeout)
 {
 	int n = epoll_wait(epfd, (struct epoll_event*)evs, maxevents, timeout);
 
@@ -84,24 +97,8 @@ int ev_wait(int epfd, ev_Event *evs, int maxevents, int timeout)
 		if (errno == EINTR)
 			return -1;
 
-		ea_pfatal("ev_wait: error in epoll_wait");
+		ea_pfatal("ew_wait: error in epoll_wait");
 	}
 
 	return n;
 }
-
-const char* ev_flags(ev_Event *ev)
-{
-	int out = ev_has(ev, EV_OUT);
-	int in = ev_has(ev, EV_IN);
-
-	if (in && out)
-		return "EV_IN, EV_OUT";
-	else if (in)
-		return "EV_IN";
-	else if (out)
-		return "EV_OUT";
-
-	return "";
-}
-

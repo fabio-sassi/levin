@@ -167,7 +167,7 @@ static void ab_printBranch(ab_Branch *b, int indent, int recursive)
 {
 	ab_printIndent(indent);
 
-	printf("{branch@%lx ", (size_t)b);
+	printf("{branch@%zx ", (size_t)b);
 
 
 	assert(b->flag & AB_BRANCH);
@@ -203,7 +203,7 @@ static void ab_printNode(ab_Node *node, int indent, int recursive)
 	int i;
 	ab_printIndent(indent);
 
-	printf("{node@%lx ", (size_t)node);
+	printf("{node@%zx ", (size_t)node);
 	printf("%d-%d (s=%d) sn=%d sv=%d", ab_nodeFrom(node), ab_nodeTo(node),
 	       node->size, node->nsize, node->vsize);
 	printf("}\n");
@@ -348,7 +348,7 @@ static ab_Cursor *ab_loCurrent(ab_Look *lo)
 static void ab_loStep(ab_Look *lo, ab_Wood *w)
 {
 	ab_Cursor *last;
-	AB_D printf("luNext - %lx ipath=%d\n", (size_t)w, lo->ipath);
+	AB_D printf("luNext - %zx ipath=%d\n", (size_t)w, lo->ipath);
 	AB_D ab_printWood(w, 4, false);
 	lo->bpos = 0;
 
@@ -639,7 +639,7 @@ static void ab_setCurrentParent(ab_Look *lo, ab_Wood *w)
 
 	parent = lo->path + lo->ipath - 1;
 
-	AB_D printf("parent: %lx\n", (size_t)parent->wood);
+	AB_D printf("parent: %zx\n", (size_t)parent->wood);
 
 	switch (ab_kind(parent->wood)) {
 

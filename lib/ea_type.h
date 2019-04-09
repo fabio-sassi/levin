@@ -25,7 +25,7 @@
 #define __AE_TYPED_VARIABLE_H__
 
 #include <stdio.h>
-#include <stdint.h>
+#include <inttypes.h>
 #include <sys/types.h>
 
 #include "ea.h"
