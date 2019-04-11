@@ -57,17 +57,19 @@ int ew_has(ew_Event *ev, int flag)
 void* ew_data(ew_Event *ev)
 {
 	return ((struct kevent*)ev)->udata;
-
 }
 
 void ew_del(int kq, int fd)
 {
 	struct kevent kevdel;
 
-	kevdel.fflags   = 0;
-	kevdel.filter   = 0;
-	kevdel.flags    = EV_DELETE;
-	kevdel.ident    = fd;
+	kevdel.ident  = fd;
+	/* this is a temporary workaround for OpenBSD FIXME */
+	kevdel.filter = EVFILT_READ | EVFILT_WRITE;
+	kevdel.fflags = 0;
+	kevdel.flags  = EV_DELETE;
+	kevdel.data   = 0;
+	kevdel.udata  = NULL;
 
 	if (kevent(kq, &kevdel, 1, NULL, 0, NULL) == -1)
 		ea_pfatal("ew_del: error in kevent del");
@@ -84,10 +86,10 @@ void ew_add(int kq, int fd, int flag, void *ptr)
 	if (flag & EW_OUT)
 		filter |= EVFILT_WRITE;
 
-	kevset.fflags   = 0;
-	kevset.filter   = filter;
-	kevset.flags    = EV_ADD | EV_CLEAR;
-	kevset.ident    = fd;
+	kevset.ident  = fd;
+	kevset.filter = filter;
+	kevset.fflags = 0;
+	kevset.flags  = EV_ADD | EV_CLEAR;
 
 	if (flag & EW_LISTEN) {
 		kevset.data = (int64_t)ptr; /* backlog */
@@ -111,9 +113,9 @@ int ew_new()
 	return kq;
 }
 
-void ew_free(int epfd)
+void ew_free(int kq)
 {
-	close(epfd);
+	close(kq);
 }
 
 int ew_wait(int kq, ew_Event *evs, int maxevents, int timeout)

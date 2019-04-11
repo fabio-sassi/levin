@@ -22,7 +22,7 @@
 
 import socket
 
-VERSION = 0.3
+VERSION = 0.4
 
 try:
     xrange
@@ -289,11 +289,9 @@ def simple_load(client, filename):
                 line = line.split(' ', 1)
                 k = line[0]
                 v = str(n) if len(line) == 1 else line[1]
-                r += 'load: set %s = %s ... ' % (k, v)
-                r += client.set(k, v)
-                r += '\n'
+                r = client.set(k, v)
+                print('load: set %s = %s ... %s' % (k, v, r))
 
-        return r
 
 
 
@@ -414,7 +412,9 @@ example:
         elif cm == 'load':
             filename, args = fetcharg(args, 'D')
            
-            response = simple_load(client, filename)
+            simple_load(client, filename)
+
+            response = "OK"
         else:
             response = 'unknow command: ' + cm
 
