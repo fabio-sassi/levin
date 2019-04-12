@@ -41,7 +41,7 @@
 
 int ew_has(ew_Event *ev, int flag)
 {
-	short filter = ((struct kevent*)ev)->filter;
+	uint32_t filter = ((struct kevent*)ev)->filter;
 
 	if (flag & EW_IN)
 		return (filter & EVFILT_READ);
@@ -63,6 +63,16 @@ void ew_del(int kq, int fd)
 {
 	struct kevent kevdel;
 
+	/* 
+	   Temporary workaround (for OpenBSD and NetBSD) FIXME
+
+	   In OpenBSD and NetBSD filter is mandatory but there isn't
+	   in ew a track of what filter have been set in fd.
+
+	   Levin sets always READ | WRITE so as a temporary workaround
+	   remove READ and WRITE
+	 */
+	#if 0
 	kevdel.ident  = fd;
 	/* this is a temporary workaround for OpenBSD FIXME */
 	kevdel.filter = EVFILT_READ | EVFILT_WRITE;
@@ -70,26 +80,25 @@ void ew_del(int kq, int fd)
 	kevdel.flags  = EV_DELETE;
 	kevdel.data   = 0;
 	kevdel.udata  = NULL;
-
+	#else
+	EV_SET(&kevdel, fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
 	if (kevent(kq, &kevdel, 1, NULL, 0, NULL) == -1)
 		ea_pfatal("ew_del: error in kevent del");
+
+
+	EV_SET(&kevdel, fd, EVFILT_WRITE, EV_DELETE, 0, 0, 0);
+	if (kevent(kq, &kevdel, 1, NULL, 0, NULL) == -1)
+		ea_pfatal("ew_del: error in kevent del");
+	#endif
+
 }
 
 void ew_add(int kq, int fd, int flag, void *ptr)
 {
 	struct kevent kevset;
-	short filter = 0;
-
-	if (flag & EW_IN)
-		filter |= EVFILT_READ;
-
-	if (flag & EW_OUT)
-		filter |= EVFILT_WRITE;
-
 	kevset.ident  = fd;
-	kevset.filter = filter;
 	kevset.fflags = 0;
-	kevset.flags  = EV_ADD | EV_CLEAR;
+	kevset.flags  = EV_ADD | EV_CLEAR |  EV_ENABLE;
 
 	if (flag & EW_LISTEN) {
 		kevset.data = (int64_t)ptr; /* backlog */
@@ -99,8 +108,17 @@ void ew_add(int kq, int fd, int flag, void *ptr)
 		kevset.udata = ptr;
 	}
 
-    if (kevent(kq, &kevset, 1, NULL, 0, NULL) == -1)
-		ea_pfatal("ew_add: error in kevent add");
+	if (flag & EW_IN) {
+		kevset.filter = EVFILT_READ;
+		if (kevent(kq, &kevset, 1, NULL, 0, NULL) == -1)
+			ea_pfatal("ew_add: error in kevent add");
+	}
+
+	if (flag & EW_OUT) {
+		kevset.filter = EVFILT_WRITE;
+		if (kevent(kq, &kevset, 1, NULL, 0, NULL) == -1)
+			ea_pfatal("ew_add: error in kevent add");
+	}
 }
 
 int ew_new()

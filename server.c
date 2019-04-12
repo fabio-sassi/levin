@@ -180,13 +180,11 @@ static void closeListenSocket()
 
 static void initListenSocket()
 {
-	const char *ip = "127.0.0.1";
-
 	evfd = ew_new();
 
-	DBG0 report("opening listen socket at %s:%d", ip, PORT);
+	DBG0 report("opening listen socket at port %d", PORT);
 
-	listensocket = io_createListenSocket(ip, PORT, LISTEN_BACKLOG);
+	listensocket = io_createListenSocket(PORT, LISTEN_BACKLOG);
 
 	ew_add(evfd, listensocket, EW_LISTEN | EW_IN | EW_OUT,
 	       (void*)LISTEN_BACKLOG);

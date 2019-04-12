@@ -56,7 +56,7 @@ static void io_reuseAddr(int fd)
 }
 
 
-int io_createListenSocket(const char *ip, int port, int backlog)
+int io_createListenSocket(int port, int backlog)
 {
 	struct sockaddr_in addr;
 	int socketfd;
@@ -69,19 +69,16 @@ int io_createListenSocket(const char *ip, int port, int backlog)
 	memset(&addr, 0, sizeof(addr));
 
 	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	addr.sin_port = htons(port);
-
-	if (inet_pton(AF_INET, ip, (void*)(&(addr.sin_addr))) <= 0)
-		ea_fatal("invalid IP address");
 
 	io_reuseAddr(socketfd);
 
-	if (bind(socketfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-		   ea_pfatal("error in socket binding");
-	}
+	if (bind(socketfd, (struct sockaddr *)&addr, sizeof(addr)) == -1)
+		ea_pfatal("error in socket binding");
 
 	if (listen(socketfd, backlog) == -1)
-	   ea_pfatal("error in socket listening");
+		ea_pfatal("error in socket listening");
 
 	io_setNonBlocking(socketfd);
 

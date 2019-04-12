@@ -300,19 +300,6 @@ if __name__ == '__main__':
     import readline
     import sys
 
-    usage = """
-usage: %(prog)s [-h] [-c 'command']
-Start a simple console to interact with a lev-in server.
-
-    --help     Show this help
-    -c         execute one or more command (separed with ';') at startup
-    -p         port
-    --host 
-example:
-    %(prog)s -c 'set dog are waiting'
-    %(prog)s -c 'set dog are waiting; set cat are on the tree; quit'
-
-"""
 
     commands = {
         'help': "show this help",
@@ -431,20 +418,84 @@ example:
 
         return response
 
-        
-    argv = sys.argv[1:]
 
-    client = Client()
+    def print_usage(msg = None):
+        usage = """
+usage:
+      %(prog)s [--host host] [--port port] ['command1' 'command2']
+
+Start a simple console to interact with a lev-in server.
+    --help     Show this help
+    --port     set port (default 5210)
+    --host     set host (default localhost)
+
+Example:
+    %(prog)s
+    %(prog)s 'get dog'
+    %(prog)s 'set dog mine' 'get dog'
+    %(prog)s --host 192.168.122.5 'get cat'
+
+"""
+        print(usage % {'prog': sys.argv[0]})
+
+        if msg:
+            print('ERROR:')
+            print('   %s\n' % msg)
+
+        sys.exit()
+
+
+    def parse_arg():
+        port = 5210
+        host = 'localhost'
+
+        inargs = []
+        skip = False
+        aiter = iter(sys.argv[1:])
+        for arg in aiter:
+            if arg[0] == '-':
+                if arg in ('--help', '-h'):
+                    print_usage()
+
+                elif arg == '--port':
+                    try:
+                        port = int(aiter.next())
+                    except StopIteration as s:
+                        print_usage('-p need more parameters')
+                    except Exception as e:
+                        print('here we go', e)
+                        print_usage(e)
+
+                elif arg == '--host':
+                    try:
+                        host = aiter.next()
+                    except StopIteration as s:
+                        print_usage('-h need more parameters')
+                    except Exception as e:
+                        print_usage(e)
+                else:
+                    print_usage('unknow option %s' % arg)
+            else:
+                inargs.append(arg)
+
+
+        return (host, port, inargs)
+
+
+    host, port, inargs = parse_arg()
+
+    client = Client(host, port)
     client.connect()
+
 
     print('lev-in python client version %s' % VERSION)
     print('Type "help" for more information.')
 
     while True:
-        if not argv:
+        if not inargs:
             cmd = raw_input('> ')
         else:
-            cmd = argv.pop(0)
+            cmd = inargs.pop(0)
         
         cmd = cmd.lstrip().split(' ', 1)
 

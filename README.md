@@ -91,7 +91,7 @@ suffix-length is under another user defined value.
 
 ## Building and Install:
 
-Levin can be build in Linux, FreeBSD and OpenBSD:
+Levin can be build in Linux, FreeBSD, OpenBSD and NetBSD:
 
 	make
 

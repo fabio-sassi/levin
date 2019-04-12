@@ -24,7 +24,7 @@
 #ifndef __MYTRIE_IO_H__
 #define __MYTRIE_IO_H__
 
-int io_createListenSocket(const char *ip, int port, int backlog);
+int io_createListenSocket(int port, int backlog);
 void io_closeListenSocket(int socket);
 
 int io_createConnectionSocket(int listensocket);
