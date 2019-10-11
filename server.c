@@ -58,8 +58,6 @@ void connClose(int fd)
 {
 	DBG1 report("close connection socket user=%d", fd);
 
-	ew_del(evfd, fd);
-
 	io_closeConnectionSocket(fd);
 }
 
@@ -163,8 +161,6 @@ static void closeListenSocket()
 {
 	if (evfd) {
 		DBG0 report("unregister listen socket");
-		if (listensocket)
-			ew_del(evfd, listensocket);
 
 		ew_free(evfd);
 		evfd = 0;

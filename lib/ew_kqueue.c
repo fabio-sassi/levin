@@ -30,6 +30,8 @@
 #include "ea.h"
 
 #include "ew.h"
+	
+typedef struct kevent ew_Event;
 
 /*---------------------------------------------------------------------------
  *  epoll and socket
@@ -59,6 +61,7 @@ void* ew_data(ew_Event *ev)
 	return ((struct kevent*)ev)->udata;
 }
 
+#if 0
 void ew_del(int kq, int fd)
 {
 	struct kevent kevdel;
@@ -72,15 +75,6 @@ void ew_del(int kq, int fd)
 	   Levin sets always READ | WRITE so as a temporary workaround
 	   remove READ and WRITE
 	 */
-	#if 0
-	kevdel.ident  = fd;
-	/* this is a temporary workaround for OpenBSD FIXME */
-	kevdel.filter = EVFILT_READ | EVFILT_WRITE;
-	kevdel.fflags = 0;
-	kevdel.flags  = EV_DELETE;
-	kevdel.data   = 0;
-	kevdel.udata  = NULL;
-	#else
 	EV_SET(&kevdel, fd, EVFILT_READ, EV_DELETE, 0, 0, 0);
 	if (kevent(kq, &kevdel, 1, NULL, 0, NULL) == -1)
 		ea_pfatal("ew_del: error in kevent del");
@@ -89,9 +83,8 @@ void ew_del(int kq, int fd)
 	EV_SET(&kevdel, fd, EVFILT_WRITE, EV_DELETE, 0, 0, 0);
 	if (kevent(kq, &kevdel, 1, NULL, 0, NULL) == -1)
 		ea_pfatal("ew_del: error in kevent del");
-	#endif
-
 }
+#endif
 
 void ew_add(int kq, int fd, int flag, void *ptr)
 {

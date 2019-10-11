@@ -33,7 +33,7 @@
 #define __ZM_VM_H__
 
 
-#define ZM_VERSION "0.1.5"
+#define ZM_VERSION "0.1.7"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -145,7 +145,6 @@ enum {
 
 
 
-
 /* * Special zmstate * */
 #define ZM_FIRST 1
 #define ZM_INIT 254
@@ -188,14 +187,12 @@ enum {
 #define ZM_EVENT_STOP             32 /* stop eval other binded task */
 
 #define ZM_EVENT_TRIGGER         256
-#define ZM_EVENT_UNBIND_REQUEST  512
+#define ZM_EVENT_UNBIND_FORCE    512
 #define ZM_EVENT_UNBIND_ABORT    1024
-#define ZM_EVENT_UNBIND   (ZM_EVENT_UNBIND_REQUEST | ZM_EVENT_UNBIND_ABORT)
 
 #define ZM_TRIGGER                 ZM_EVENT_TRIGGER
-#define ZM_UNBIND_REQUEST          ZM_EVENT_UNBIND_REQUEST
+#define ZM_UNBIND                  ZM_EVENT_UNBIND_FORCE
 #define ZM_UNBIND_ABORT            ZM_EVENT_UNBIND_ABORT
-#define ZM_UNBIND                  ZM_EVENT_UNBIND
 
 /* **** RUN RETURN FLAG *** */
 #define ZM_RUN_IDLE 0
@@ -321,15 +318,14 @@ typedef struct zm_Event_ zm_Event;
 typedef struct zm_EventBinder_ zm_EventBinder;
 
 /* event callback (trigger and unbind) */
-typedef int (*zm_event_cb)(zm_VM *vm,
-                           int scope,
+typedef int (*zm_event_cb)(int scope,
                            zm_Event *event,
                            zm_State *state,
                            void *argument);
 
 
 struct zm_Event_ {
-	int flag;
+	int unused_flag;
 	int count;
 
 	zm_EventBinder *bindlist;
@@ -396,23 +392,22 @@ struct zm_Exception_ {
 
 /*
  * A machine is like a symbol in global scope that rappresent a task class.
- * As a class, a machine allow to instance many task.  process is done
+ * As a class, a machine allow to instance many task, this is done
  * in 3 step:
  *
- * class definition: ZMTASKDEF(X) define a zm_Machine and a pointer X to it
- *                   to be used as class definition symbol.
- * task instance:    zm_newTask(vm, X, ...) create, only at the first
- *                   invocation with the class X, a zm_Worker associated to X.
- *                   This is the reference of X inside a vm (zm_VM) and will
- *                   be used in successive task instance procedure.
- *                   zm_newTask return an instance task (zm_State) associated
- *                   to the worker X and to vm.
+ * class definition: ZMTASKDEF(X) define a zm_Machine and a pointer X
+ *                   to this struct to be used as class definition symbol.
  *
- * In a vm there is only one worker for each machine. An associative array
- * (mwh) inside vm allow to match a machine with relative zm_Worker.
+ * worker instance:  During the first X-task instance, zm_newTask create
+ *                   a zm_Worker that is a rappresentation of class X inside
+ *                   a zm_VM.
  *
- * In this way user can use global machine symbol as the reference to
- * the relative zm_Worker instance (for example to instance new task).
+ * task instance:    zm_newTask(vm, X, ...) return an instance task (zm_State)
+ *                   relative to vm and machine X.
+ *
+ * In any vm there is only one worker for each machine (these associations 
+ * are store in the vm associative array mwh).
+ *
 */
 typedef struct {
 	int id;
@@ -678,25 +673,23 @@ typedef void (*zm_tlock_cb)(FILE *f, void *data, int lock);
 
 
 /* memory utilty */
-#define zm_alloc(s) ((s*)zm_malloc(sizeof(s), true))
+#define zm_alloc(s) ((s*)zm_malloc(sizeof(s)))
 #define zm_free(s, ptr) zm_mfree(sizeof(s), ptr)
-#define zm_nalloc(s, n) ((s*)zm_malloc(sizeof(s) * (n), true))
-#define zm_nrealloc(ptr, s, n) ((s*)zm_mrealloc((ptr), sizeof(s) * (n), true))
+#define zm_nalloc(s, n) ((s*)zm_malloc(sizeof(s) * (n)))
+#define zm_nrealloc(ptr, s, n) ((s*)zm_mrealloc((ptr), sizeof(s) * (n)))
 #define zm_nfree(s, n, ptr) zm_mfree(sizeof(s) * (n), ptr)
 
-void *zm_malloc(size_t size, int memfatal);
-void *zm_mrealloc(void *ptr, size_t size, int memfatal);
+void *zm_malloc(size_t size);
+void *zm_mrealloc(void *ptr, size_t size);
 void zm_mfree(size_t size, void *ptr);
 
 
 /* indent and buffer print utilty */
-void zm_initPrint(zm_Print *p, FILE *stream, int indent, int b);
+void zm_initPrint(zm_Print *p, FILE *stream, int indent);
 void zm_setIndent(zm_Print *out, int indent);
 void zm_addIndent(zm_Print *out, int indent);
-void zm_iprint(zm_Print *out, const char *fmt, ...);
 void zm_print(zm_Print *out, const char *fmt, ...);
-char* zm_popPrintBuffer(zm_Print *out, size_t *size);
-void zm_removePrintBuffer(zm_Print *out);
+void zm_vprint(zm_Print *out, const char *fmt, va_list args);
 
 /* report fatal utility */
 typedef void (*zm_fatal_cb)(const char *zname, void *zdata, void *data);
@@ -772,9 +765,7 @@ zm_State *izmContinueTail(zm_VM* vm, zm_Exception *e, const char *fn, int nl);
 
 
 /* event */
-zm_Event* zm_newEvent(void *data);
-
-void zm_setEventCB(zm_VM *vm, zm_Event* event, zm_event_cb cb, int scope);
+zm_Event* zm_newEvent(zm_event_cb callback, void *data);
 
 void zm_freeEvent(zm_VM *vm, zm_Event *event);
 

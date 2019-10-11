@@ -26,14 +26,15 @@
 
 /* wrapping for trigger event notification system */
 
+#ifdef __sun
+	#error "Solaris based systems are not supported"
+#endif
+
 #ifdef __linux__
-	#include <sys/epoll.h>
+	#include <sys/epoll.h> /* linux epoll */
 	typedef struct epoll_event ew_Event;
 #else
-	#ifdef __sun
-		#error "SunOS is not supported"
-	#endif
-	#include <sys/event.h> /* kqueue */
+	#include <sys/event.h> /* xBSD kqueue */
 	typedef struct kevent ew_Event;
 #endif
 
@@ -50,7 +51,6 @@ void* ew_data(ew_Event *ev);
 const char* ew_flags(ew_Event *ev);
 
 void ew_add(int efd, int sock, int flag, void *ptr);
-void ew_del(int efd, int sock);
 
 int ew_wait(int epfd, ew_Event *events, int maxevents, int timeout);
 

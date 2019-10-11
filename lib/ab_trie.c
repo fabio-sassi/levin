@@ -103,9 +103,9 @@ static const char *ab_loStatusName(int status)
 	AB_CASE(AB_LKUP_EMPTY);
 	AB_CASE(AB_LKUP_FOUND);
 	AB_CASE(AB_LKUP_NOVAL);
-	AB_CASE(AB_LKUP_BRANCH_A_AB);
-	AB_CASE(AB_LKUP_BRANCH_AB_A);
-	AB_CASE(AB_LKUP_BRANCH_AB_AC);
+	AB_CASE(AB_LKUP_BRANCH_OVER);
+	AB_CASE(AB_LKUP_BRANCH_INTO);
+	AB_CASE(AB_LKUP_BRANCH_DIFF);
 	AB_CASE(AB_LKUP_NODE_NOITEM);
 	AB_CASE(AB_LKUP_NODE_NOSUB);
 	default:
@@ -114,11 +114,6 @@ static const char *ab_loStatusName(int status)
 }
 
 #undef AB_CASE
-
-
-
-
-
 
 
 /*
@@ -441,8 +436,8 @@ static int ab_loBranch(ab_Look *lo)
 		   position inside this branch */
 		lo->ipos--;
 		if (!next) {
-			/*  branch = abc, data = abcdef */
-			lo->status = AB_LKUP_BRANCH_A_AB;
+			/*  branch = abc, lookup = abcdef */
+			lo->status = AB_LKUP_BRANCH_OVER;
 			return false;
 		}
 
@@ -456,7 +451,7 @@ static int ab_loBranch(ab_Look *lo)
 
 	if (lo->key[lo->ipos] != b->kdata[lo->bpos]) {
 		/*  branch = abcdef, data = abcxyz */
-		lo->status = AB_LKUP_BRANCH_AB_AC;
+		lo->status = AB_LKUP_BRANCH_DIFF;
 		AB_D printf("lu-b: different char\n");
 		return false;
 	}
@@ -469,8 +464,8 @@ static int ab_loBranch(ab_Look *lo)
 			else
 				lo->status = AB_LKUP_NOVAL;
 		} else {
-			/*  branch = abcdef, data = abc */
-			lo->status = AB_LKUP_BRANCH_AB_A;
+			/*  branch = abcdef, lookup = abc */
+			lo->status = AB_LKUP_BRANCH_INTO;
 		}
 		return false;
 	}
@@ -845,7 +840,7 @@ static void ab_addOnBranch(ab_Look *lo, void *value)
 
 	switch(lo->status) {
 
-	case AB_LKUP_BRANCH_A_AB: {
+	case AB_LKUP_BRANCH_OVER: {
 		/* bpos over branch length: abc + abcdef */
 		int off = lo->ipos + 1;
 
@@ -857,7 +852,7 @@ static void ab_addOnBranch(ab_Look *lo, void *value)
 		return;
 	}
 
-	case AB_LKUP_BRANCH_AB_A: {
+	case AB_LKUP_BRANCH_INTO: {
 		/* abcdef + abc */
 		ab_Branch *head;
 		AB_D printf("branchAdd: abcdef + abc\n");
@@ -867,7 +862,7 @@ static void ab_addOnBranch(ab_Look *lo, void *value)
 		break;
 	}
 
-	case AB_LKUP_BRANCH_AB_AC: {
+	case AB_LKUP_BRANCH_DIFF: {
 		/* abcdef + abcxyz */
 		ab_Node *node;
 		ab_Wood *head;
@@ -1493,9 +1488,9 @@ void* ab_set(ab_Look *lo, void *val)
 		ab_setValue(lo, val);
 		break;
 
-	case AB_LKUP_BRANCH_A_AB:
-	case AB_LKUP_BRANCH_AB_A:
-	case AB_LKUP_BRANCH_AB_AC:
+	case AB_LKUP_BRANCH_OVER:
+	case AB_LKUP_BRANCH_INTO:
+	case AB_LKUP_BRANCH_DIFF:
 	case AB_LKUP_NODE_NOITEM:
 	case AB_LKUP_NODE_NOSUB:
 		ab_addOn(lo, val);

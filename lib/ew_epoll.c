@@ -50,11 +50,13 @@ void* ew_data(ew_Event *ev)
 
 }
 
+#if 0
 void ew_del(int efd, int fd)
 {
 	if (epoll_ctl(efd, EPOLL_CTL_DEL, fd, NULL) == -1)
 		ea_pfatal("ew_del: error in epoll_ctl del");
 }
+#endif
 
 void ew_add(int efd, int fd, int ewflag, void *ptr)
 {

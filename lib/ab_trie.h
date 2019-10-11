@@ -40,13 +40,6 @@
 #endif
 
 
-typedef struct {
-	uint8_t flag;
-	char letter;
-	uint8_t n;
-	uint8_t v;
-} ab_NodeItem;
-
 #define AB_NODE 1
 #define AB_BRANCH 2
 
@@ -58,6 +51,52 @@ typedef struct {
 #define AB_ITEM_VAL    2
 #define AB_ITEM_SUB    4
 #define AB_ITEM_MASK   (AB_ITEM_ON | AB_ITEM_VAL | AB_ITEM_SUB)
+
+#define AB_MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+enum {
+	/* lookup initialized but not performed */
+	AB_LKUP_INIT,
+
+	/* lookup out of sync - used in a set or del operation */
+	AB_LKUP_UNSYNC,
+
+	/*  found - pattern exists in trie and have value */
+	AB_LKUP_FOUND,
+
+	/*  not found - trie is empty */
+	AB_LKUP_EMPTY,
+
+	/*  not found - reached leaf-branch end (b = ab, lk = abc) */
+	AB_LKUP_BRANCH_OVER,
+
+	/*  not found - stand inside branch (b = abc, lk = ab) */
+	AB_LKUP_BRANCH_INTO,
+
+	/*  not found - different chars in lookup branch (b = abc, lk = axy) */
+	AB_LKUP_BRANCH_DIFF,
+
+	/*  not found - char not found in node */
+	AB_LKUP_NODE_NOITEM,
+
+	/*  not found - reached a leaf-node */
+	AB_LKUP_NODE_NOSUB,
+
+	/*  not found - pattern exists in trie but have no value */
+	AB_LKUP_NOVAL
+};
+
+
+
+typedef struct {
+	uint8_t flag;
+	char letter;
+	uint8_t n;
+	uint8_t v;
+} ab_NodeItem;
+
+
+
 
 
 typedef struct {
@@ -91,37 +130,6 @@ typedef struct {
 
 
 
-enum {
-	/* lookup initialized but not performed */
-	AB_LKUP_INIT,
-
-	/* lookup out of sync - used in a set or del operation */
-	AB_LKUP_UNSYNC,
-
-	/*  found - pattern exists in trie and have value */
-	AB_LKUP_FOUND,
-
-	/*  not found - trie is empty */
-	AB_LKUP_EMPTY,
-
-	/*  not found - reached leaf-branch end (b = ab, lk = abc) */
-	AB_LKUP_BRANCH_A_AB,
-
-	/*  not found - stand inside branch (b = abc, lk = ab) */
-	AB_LKUP_BRANCH_AB_A,
-
-	/*  not found - different chars in lookup branch (b = abc, lk = axy) */
-	AB_LKUP_BRANCH_AB_AC,
-
-	/*  not found - char not found in node */
-	AB_LKUP_NODE_NOITEM,
-
-	/*  not found - reached a leaf-node */
-	AB_LKUP_NODE_NOSUB,
-
-	/*  not found - pattern exists in trie but have no value */
-	AB_LKUP_NOVAL
-};
 
 
 /* TODO
@@ -157,7 +165,8 @@ typedef struct {
 	ab_Cursor path[3];
 } ab_Look;
 
-#define AB_MIN(x, y) (((x) < (y)) ? (x) : (y))
+
+
 
 void ab_printWood(ab_Wood *w, int indent, int recursive);
 void ab_printKeys(ab_Wood *w, int indent);
