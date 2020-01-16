@@ -90,11 +90,55 @@ enum {
 
 typedef struct {
 	uint8_t flag;
-	char letter;
-	uint8_t n;
-	uint8_t v;
 } ab_NodeItem;
 
+
+
+typedef struct {
+	uint8_t flag;
+	uint8_t letter;
+	uint8_t n;
+	uint8_t v;
+} ab_NodeItem_u8; /* 32bit - 4 byte */
+
+
+typedef struct {
+	uint8_t flag;
+	struct {
+		uint8_t letter; /* allow to rappresent an int24 */
+	} ext;
+	uint16_t letter;
+	uint16_t n;
+	uint16_t v;
+} ab_NodeItem_u24;  /* 64bit - 8 byte */
+
+
+typedef struct {
+	uint8_t flag;
+	struct {
+		uint8 n;
+		uint8 v;
+		uint8 nv;
+	} ext;
+	uint16 n; 
+	uint16 v;
+	unint32 letter;
+} ab_NodeItem_u32; /*96 bit - 12 byte */
+
+
+
+
+
+/*
+ * n, v are 28-bit integer:
+ * n = 16bit + ext.n + ext.nv/2 = 16 + 8 + 4 = 28 bit
+ * v = 16bit + ext.v + ext.nv/2 = 16 + 8 + 4 = 28 bit
+ * The possibile symbols stored in a node of this kind 
+ * are 2**28 = 268'435'456 and not 2*32 because n,v
+ * can index 2*28 elements
+ *
+ * ab_NodeItem_u32 can contain also utf8.
+ */
 
 
 
@@ -118,16 +162,44 @@ typedef struct {
 	uint8_t size;
 	uint8_t nsize;
 	uint8_t vsize;
-	ab_NodeItem *items;
+	/* 4 bytes left in 64 bit arch */
+	ab_NodeItem_u8 *items;
 	ab_Wood **subs;
 	void **values;
+} ab_Node_u8;
+
+
+typedef struct {
+	uint8_t flag;
+	/* 1 bytes left in 64 bit arch */
+	uint16_t size;
+	uint16_t nsize;
+	uint16_t vsize;
+	ab_NodeItem_u24 *items;
+	ab_Wood **subs;
+	void **values;
+} ab_Node_u24;
+
+
+typedef struct {
+	uint8_t flag;
+	/* 3 bytes left in 64 bit arch */
+	uint32_t size;
+	uint32_t nsize;
+	uint32_t vsize;
+	ab_NodeItem_u32 *items;
+	ab_Wood **subs;
+	void **values;
+} ab_Node_u32;
+
+typedef struct {
+	uint8_t flag;
 } ab_Node;
 
 
 typedef struct {
 	ab_Wood *root;
 } ab_Trie;
-
 
 
 

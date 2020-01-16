@@ -49,37 +49,6 @@ static int ab_getKind(ab_Wood *w, int line)
 }
 
 
-static int ab_nodeFrom(ab_Node *node)
-{
-	assert(node->size > 0);
-	return node->items[0].letter;
-}
-
-static int ab_nodeTo(ab_Node *node)
-{
-	assert(node->size > 0);
-	return node->items[0].letter + node->size - 1;
-}
-
-static ab_NodeItem* ab_nodeGet(ab_Node *node, int c)
-{
-	int i, from;
-
-	if (!node->items)
-		return NULL;
-
-	from = ab_nodeFrom(node);
-
-	if (c < from)
-		return NULL;
-
-	i = c - from;
-
-	if (i >= node->size)
-		return NULL;
-
-	return node->items + i;
-}
 
 
 static const char* ab_kindName(ab_Wood *w)
@@ -117,7 +86,7 @@ static const char *ab_loStatusName(int status)
 
 
 /*
- *     DEBUG PRINT  #SECTION
+ *  SECTION: debug print
  */
 
 
@@ -199,19 +168,12 @@ static void ab_printNode(ab_Node *node, int indent, int recursive)
 	ab_printIndent(indent);
 
 	printf("{node@%zx ", (size_t)node);
-	printf("%d-%d (s=%d) sn=%d sv=%d", ab_nodeFrom(node), ab_nodeTo(node),
-	       node->size, node->nsize, node->vsize);
+	printf("(s=%d) sn=%d sv=%d", node->size, node->nsize, node->vsize);
 	printf("}\n");
 
 	for (i = 0; i < node->size; i++) {
-		ab_NodeItem *item = node->items + i;
-		char c = (char)(ab_nodeFrom(node) + i);
-
-#if 0
-		/* print only active items */
-		if ((item->flag & AB_ITEM_ON) == 0)
-			continue;
-#endif
+		ab_NodeItem *item = ab_itemAt(node, i);
+		char c = item->letter;
 
 		ab_printIndent(indent + 2);
 
@@ -241,8 +203,6 @@ static void ab_printNode(ab_Node *node, int indent, int recursive)
 		} else {
 			printf("\n");
 		}
-
-
 	}
 }
 
@@ -297,7 +257,7 @@ static void ab_printNodeKeys(ab_Node *node, int indent)
 	int i;
 
 	for (i = 0; i < node->size; i++) {
-		ab_NodeItem *item = node->items + i;
+		ab_NodeItem *item = ab_itemAt(node, i);
 
 		if (item->flag & AB_ITEM_ON) {
 
@@ -322,7 +282,7 @@ static void ab_printNodeKeys(ab_Node *node, int indent)
 
 
 /*
- *     LOOKUP  #SECTION
+ *  SECTION: lookup
  */
 
 
@@ -385,7 +345,7 @@ static int ab_loNode(ab_Look *lo)
 
 	current->at.item = item;
 
-	AB_D printf("lu-n: item%s exists\n", (item) ? "" : " don't");
+	AB_D printf("lo-n: item%s exists\n", (item) ? "" : " don't");
 
 	AB_D if (item) ab_printNodeItem(item, 4);
 
@@ -425,12 +385,12 @@ static int ab_loBranch(ab_Look *lo)
 	ab_Cursor *current = ab_loCurrent(lo);
 	ab_Branch *b = (ab_Branch*)(current->wood);
 
-	AB_D printf("lu-b: i=%d b=%d\n", lo->ipos, lo->bpos);
+	AB_D printf("lo-b: i=%d b=%d\n", lo->ipos, lo->bpos);
 
 	AB_D ab_printBranch(b, 4, true);
 
 	if (lo->bpos >= b->len) {
-		AB_D printf("lu-b: no more char\n");
+		AB_D printf("lo-b: no more char\n");
 		ab_Wood *next = b->sub;
 		/* one step over: ipos must be decremented to be a valid
 		   position inside this branch */
@@ -445,14 +405,14 @@ static int ab_loBranch(ab_Look *lo)
 		return true;
 	}
 
-	AB_D printf("lu-b: d='%c' vs b='%c'\n",
+	AB_D printf("lo-b: d='%c' vs b='%c'\n",
 	            lo->key[lo->ipos],
 	            b->kdata[lo->bpos]);
 
 	if (lo->key[lo->ipos] != b->kdata[lo->bpos]) {
 		/*  branch = abcdef, data = abcxyz */
 		lo->status = AB_LKUP_BRANCH_DIFF;
-		AB_D printf("lu-b: different char\n");
+		AB_D printf("lo-b: different char\n");
 		return false;
 	}
 
@@ -470,7 +430,7 @@ static int ab_loBranch(ab_Look *lo)
 		return false;
 	}
 
-	AB_D printf("lu-b: go on\n");
+	AB_D printf("lo-b: go on\n");
 	lo->bpos++;
 
 	return true;
@@ -480,16 +440,8 @@ static int ab_loBranch(ab_Look *lo)
 
 
 /*
- *  INSTANCE WOOD #SECTION
+ *  SECTION: instance/free
  */
-
-static ab_NodeItem *ab_nodeItemsNew(int size)
-{
-	ab_NodeItem *items = ea_allocArray(ab_NodeItem, size);
-	memset(items, 0, size*sizeof(ab_NodeItem));
-
-	return items;
-}
 
 
 static ab_Node* ab_nodeNew(int size)
@@ -549,8 +501,7 @@ static void ab_nodeFree(ab_Node *node)
 	assert(node->nsize == 0);
 	assert(node->vsize == 0);
 
-	if (node->size)
-		ea_freeArray(ab_NodeItem, node->size, node->items);
+	ab_nodeItemsFree(node);
 
 	ea_free(ab_Node, node);
 }
@@ -559,7 +510,7 @@ static void ab_nodeFree(ab_Node *node)
 
 
 /*
- *     ADD KEYS  #SECTION
+ *  SECTION: set, ins
  */
 
 static void* ab_nodeSetValue(ab_Node *node, ab_NodeItem *item, void *val)
@@ -581,6 +532,22 @@ static void* ab_nodeSetValue(ab_Node *node, ab_NodeItem *item, void *val)
 	return r;
 }
 
+/*
+ * 
+ */
+static void ab_nodeSetSub(ab_Node *node, ab_NodeItem *item, ab_Wood *sub)
+{
+	int last = node->nsize;
+
+	assert(!(item->flag & AB_ITEM_SUB)); 
+
+	node->nsize++;
+	node->subs = ea_resizeArray(ab_Wood*, node->nsize, node->subs);
+	node->subs[last] = sub;
+	item->flag |= AB_ITEM_SUB;
+	item->n = last;
+}
+
 
 static void* ab_branchSetValue(ab_Branch *b, void *value)
 {
@@ -591,36 +558,9 @@ static void* ab_branchSetValue(ab_Branch *b, void *value)
 }
 
 
-static void ab_nodeGrow(ab_Node *node, int from, int to)
-{
-	int offset = ab_nodeFrom(node) - from;
-	int size0 = node->size;
-	ab_NodeItem *src = node->items;
-
-	node->size = to - from + 1;
-	AB_D printf("ab_nodeGrow: size from %d to %d\n", size0, node->size);
-
-	// TODO
-	// node->items = ab_nodeItemsNewFrom(node->size, src, offset, size0);
-
-	node->items = ab_nodeItemsNew(node->size);
-	memcpy(node->items + offset, src, size0 * sizeof(ab_NodeItem));
-
-	ea_freeArray(ab_NodeItem, size0, src);
-}
-
-
-static void ab_nodeAddSub(ab_Node *node, ab_Wood *sub, ab_NodeItem *item)
-{
-	int last = node->nsize;
-	node->nsize++;
-	node->subs = ea_resizeArray(ab_Wood*, node->nsize, node->subs);
-	node->subs[last] = sub;
-	item->flag |= AB_ITEM_SUB;
-	item->n = last;
-}
-
-
+/*
+ * FIXME: rename sub in child to be consistent with set current parent 
+ */
 static void ab_setCurrentParent(ab_Look *lo, ab_Wood *w)
 {
 	ab_Cursor *parent;
@@ -652,47 +592,6 @@ static void ab_setCurrentParent(ab_Look *lo, ab_Wood *w)
 }
 
 
-static void ab_addItem(ab_Node *node, int c, ab_Wood *sub, int haveval,
-                                                             void *val)
-{
-	ab_NodeItem *item;
-
-	AB_D printf("nodeIns: char=%d'%c' size0 = %d\n", c, c, node->size);
-
-	if (node->items == NULL) {
-		node->size = 1;
-		node->items = ab_nodeItemsNew(1);
-		item = node->items;
-	} else {
-		int from = ab_nodeFrom(node);
-		int to = ab_nodeTo(node);
-
-		AB_D printf("nodeIns: range0 %d'%c' - %d'%c'\n", from, from,
-		            to, to);
-
-		if (c < from) {
-			ab_nodeGrow(node, c, to);
-			from = c;
-		} else if (c > to) {
-			ab_nodeGrow(node, from, c);
-			to = c;
-		}
-
-		AB_D printf("nodeIns: range %d'%c' - %d'%c'\n", from, from,
-		            to, to);
-		item = node->items + (c - from);
-	}
-	AB_D printf("nodeIns: size = %d\n", node->size);
-
-	item->flag = AB_ITEM_ON;
-	item->letter = c;
-
-	if (sub)
-		ab_nodeAddSub(node, sub, item);
-
-	if (haveval)
-		ab_nodeSetValue(node, item, val);
-}
 
 
 
@@ -808,10 +707,9 @@ static void ab_addOnNode(ab_Look *lo, ab_Node *node, void *value)
 			break;
 
 		case AB_LKUP_NODE_NOSUB: {
-			int from = ab_nodeFrom(node);
-			ab_NodeItem *item = node->items + (c - from);
+			ab_NodeItem *item = ab_nodeGet(node, c);
 
-			ab_nodeAddSub(node, (ab_Wood*)tail, item);
+			ab_nodeSetSub(node, item, (ab_Wood*)tail);
 			break;
 
 		}
@@ -875,7 +773,7 @@ static void ab_addOnBranch(ab_Look *lo, void *value)
 
 		//ab_loCurrent(lo)->wood = head; TODO ??
 
-		/* overwrite lu status to node NOITEM because fork work
+		/* overwrite 'lo' status to node NOITEM because fork work
 		 * on two different char and other char doesn't exists
 		 * in node
 		 */
@@ -944,7 +842,7 @@ static void ab_addOn(ab_Look *lo, void *value)
 
 
 /*
- *     REMOVE KEYS  #SECTION
+ *  SECTION: del 
  */
 
 
@@ -985,9 +883,12 @@ static void ab_nodeDelSub(ab_Node *node, ab_NodeItem *item)
 		node->subs = subs;
 		node->nsize--;
 
-		for (j = 0; j < node->size; j++)
-			if (node->items[j].n > i)
-				node->items[j].n--;
+		for (j = 0; j < node->size; j++) {
+			NodeItem *itemj = ab_itemAt(node, j);
+
+			if (itemj.n > i)
+				itemj.n--;
+		}
 	}
 
 	item->n = 0;
@@ -1020,10 +921,12 @@ static void ab_nodeDelVal(ab_Node *node, ab_NodeItem *item)
 		node->values = values;
 		node->vsize--;
 
-		for (j = 0; j < node->size; j++)
-			if (node->items[j].v > i)
-				node->items[j].v--;
+		for (j = 0; j < node->size; j++) {
+			NodeItem *itemj = ab_itemAt(node, j);
 
+			if (itemj.v > i)
+				itemj.v--;
+		}
 	}
 
 	item->v = 0;
@@ -1032,71 +935,6 @@ static void ab_nodeDelVal(ab_Node *node, ab_NodeItem *item)
 		item->flag = AB_ITEM_ON | AB_ITEM_SUB;
 	else
 		item->flag = AB_ITEM_OFF;
-}
-
-
-static void ab_nodeShrink(ab_Node *node, ab_NodeItem *item)
-{
-	int from = ab_nodeFrom(node);
-	int to = ab_nodeTo(node);
-	int i, size;
-	ab_NodeItem *items;
-
-	AB_D printf("nodeShrink - f='%c'%d to ='%c'%d\n", from, from, to, to);
-
-#if 0
-	AB_D {
-		ab_printNode(node, 4, false);
-		printf("nodeShrink items =\n");
-		for (i = 0; i < node->size; i++)
-			ab_printNodeItem(node->items + i, 4);
-	}
-#endif
-
-	if (item->letter == from) {
-		for (i = from + 1; i < to; i++)
-			if (node->items[i - from].flag)
-				break;
-
-		from = i;
-	} else if (item->letter == to) {
-		for (i = to - 1; i > from; i--)
-			if (node->items[i - from].flag)
-				break;
-
-		to = i;
-	} else {
-		AB_D printf("nodeShrink...nothing to do\n");
-		return;
-	}
-
-
-	AB_D printf("nodeShrink -GO- f='%c'%d t='%c'%d\n", from, from, to, to);
-
-	size = to - from + 1;
-	i = from - ab_nodeFrom(node);
-
-	// TODO
-	//items = ab_nodeItemsNewFrom(size, node->items, i, size);
-	AB_D printf("nodeShrink copy from %d size=%d\n", i, size);
-
-	items = ab_nodeItemsNew(size);
-	memcpy(items, node->items + i, size * sizeof(ab_NodeItem)) ;
-
-
-	ea_freeArray(ab_NodeItem, node->size, node->items);
-
-	node->items = items;
-	node->size = size;
-
-#if 0
-	AB_D {
-		ab_printNode(node, 4, false);
-		printf("nodeShrink new items =\n");
-		for (i = 0; i < node->size; i++)
-			ab_printNodeItem(node->items + i, 4);
-	}
-#endif
 }
 
 
@@ -1148,7 +986,7 @@ static int ab_mergeBranch(ab_Branch *b)
 
 static ab_Branch *ab_newBranchFrom(ab_Node *node)
 {
-	ab_NodeItem *item = node->items + 0;
+	ab_NodeItem *item = ab_itemAt(node, 0);
 	ab_Branch *b;
 
 	assert(node->size == 1);
@@ -1170,16 +1008,16 @@ static ab_Branch *ab_newBranchFrom(ab_Node *node)
 static void ab_nodeToBranch(ab_Look *lo, ab_Node *node)
 {
 	ab_Branch *b = ab_newBranchFrom(node);
-	ab_NodeItem *item = node->items;
+	ab_NodeItem *item = ab_itemAt(node, 0);
 
 	AB_D printf("node2branch: new (replace) branch\n");
 	AB_D ab_printBranch(b, 4, true);
 
 	if (item->flag & AB_ITEM_SUB)
-		ab_nodeDelSub(node, node->items);
+		ab_nodeDelSub(node, item);
 
 	if (item->flag & AB_ITEM_VAL)
-		ab_nodeDelVal(node, node->items);
+		ab_nodeDelVal(node, item);
 
 	ab_nodeFree(node);
 
@@ -1205,14 +1043,14 @@ static void ab_nodeToBranch(ab_Look *lo, ab_Node *node)
 }
 
 
-static void ab_nodeUpdateCurrent(ab_Look *lo)
+static void ab_nodePopItem(ab_Look *lo)
 {
 	ab_Cursor *last = lo->path + lo->ipath;
 	ab_Node *node = (ab_Node*)last->wood;
 	ab_NodeItem *item = last->at.item;
 
 	AB_D printf("nodeUpd: shrink\n");
-	ab_nodeShrink(node, item);
+	ab_nodeDelItem(node, item);
 
 	AB_D printf("nodeUpd: shrinked\n");
 	AB_D ab_printWood((ab_Wood*)node, 4, true);
@@ -1239,7 +1077,7 @@ static void ab_delFromNode(ab_Look *lo)
 		/* non terminal node */
 		return;
 
-	ab_nodeUpdateCurrent(lo);
+	ab_nodePopItem(lo);
 }
 
 
@@ -1280,7 +1118,7 @@ static void ab_delFromBranch(ab_Look *lo)
 		if (prev->at.item->flag & AB_ITEM_VAL)
 			break;
 
-		ab_nodeUpdateCurrent(lo);
+		ab_nodePopItem(lo);
 		break;
 
 	case AB_BRANCH:
@@ -1297,7 +1135,9 @@ static void ab_delFromBranch(ab_Look *lo)
 
 
 
-/* PUBLIC METHOD #SECTION */
+/* 
+ *  SECTION: public method 
+ */
 
 
 void ab_printWood(ab_Wood *w, int indent, int recursive)
@@ -1400,7 +1240,7 @@ int ab_loNext(ab_Look *lo)
 	if (lo->status != AB_LKUP_INIT)
 		return false;
 
-	AB_D printf("lu key[%d/%d] = '%c'\n", lo->ipos,
+	AB_D printf("lo key[%d/%d] = '%c'\n", lo->ipos,
 		   lo->len, lo->key[lo->ipos]);
 
 	//AB_D ab_printSearch(lo);
@@ -1419,7 +1259,7 @@ int ab_loNext(ab_Look *lo)
 	if (again)
 		lo->ipos++;
 
-	AB_D printf("lu: lo %s\n", (again) ? "again..." : "STOP");
+	AB_D printf("lo: lo %s\n", (again) ? "again..." : "STOP");
 
 	return again;
 }
@@ -1513,7 +1353,7 @@ void* ab_set(ab_Look *lo, void *val)
 		break;
 
 	default:
-		ea_fatal("ab_set: unexpected lu status %d", lo->status);
+		ea_fatal("ab_set: unexpected lo status %d", lo->status);
 	}
 
 	lo->status = AB_LKUP_UNSYNC;
@@ -1558,13 +1398,11 @@ void* ab_del(ab_Look *lo)
 }
 
 
+
 static ab_Wood* ab_firstNode(ab_Look *lo, ab_Wood *w, int *letter, int bottom)
 {
 	ab_Node *node = (ab_Node*)w;
-	ab_NodeItem* item = node->items + 0;
-
-	if (bottom)
-		item += node->size - 1;
+	ab_NodeItem* item = ab_itemAt((bottom) ? (node->size - 1) : 0);
 
 	ab_loCurrent(lo)->at.item = item;
 
@@ -1683,7 +1521,7 @@ static void ab_startFrom(ab_Cursor *c, ab_Wood *wood)
 
 	case AB_NODE: {
 		ab_Node *node = (ab_Node*)wood;
-		c->at.item = ab_nodeGet(node, ab_nodeFrom(node));
+		c->at.item = ab_itemAt(node, 0);
 		break;
 	}
 
@@ -1765,24 +1603,16 @@ int ab_value(ab_Cursor *c, void **value)
 }
 
 
+/*
+ * FIXME rename in ab_keys and ab_keys in ab_nodeKeys?
+ */ 
 int ab_choices(ab_Cursor *c, char *array)
 {
 	switch(ab_kind(c->wood)) {
 
 	case AB_NODE: {
 		ab_Node *node = (ab_Node*)c->wood;
-		int i, n = 0;
-		for (i = 0; i < node->size; i++) {
-			ab_NodeItem* item = node->items + i;
-
-			if (item->flag & AB_ITEM_ON) {
-				if (array)
-					array[n] = item->letter;
-				n++;
-			}
-		}
-
-		return n;
+		return ab_keys(node, array);
 	}
 
 	case AB_BRANCH:
@@ -1839,21 +1669,17 @@ int ab_seekNext(ab_Cursor *c)
 	case AB_NODE: {
 		ab_Node *node = (ab_Node*)c->wood;
 		ab_NodeItem *item = c->at.item;
-		int to = ab_nodeTo(node);
-		int i = item->letter + 1;
+		int i = ab_itemIndex(node, item) + 1;
 
-		if (i > to)
+		if (i >= (node->size - 1))
 			return false;
 
-		for (; i <= to; i++) {
-			item = ab_nodeGet(node, i);
-			if (item->flag & AB_ITEM_ON) {
-				c->at.item = item;
-				return true;
-			}
-		}
+		item = ab_itemAt(node, i);
 
-		assert(true);
+		assert(item->flag & AB_ITEM_ON);
+
+		c->at.item = item;
+		return true;
 	}
 	case AB_BRANCH: {
 		return false;
