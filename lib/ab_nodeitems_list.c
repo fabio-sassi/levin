@@ -1,16 +1,6 @@
-static ab_NodeItem *ab_nodeItemsNew(int size)
-{
-	ab_NodeItem *items = ea_allocArray(ab_NodeItem, size);
-	memset(items, 0, size*sizeof(ab_NodeItem));
-
-	return items;
-}
-
-static void ab_nodeItemsFree(ab_Node *node)
-{
-	if (node->size)
-		ea_freeArray(ab_NodeItem, node->size, node->items);
-}
+/*
+ *      PRIVATE METHODS
+ */
 
 static int ab_nodeFrom(ab_Node *node)
 {
@@ -24,61 +14,6 @@ static int ab_nodeTo(ab_Node *node)
 	return node->items[0].letter + node->size - 1;
 }
 
-static ab_NodeItem* ab_nodeGet(ab_Node *node, int c)
-{
-	int i, from;
-
-	if (!node->items)
-		return NULL;
-
-	from = ab_nodeFrom(node);
-
-	if (c < from)
-		return NULL;
-
-	i = c - from;
-
-	if (i >= node->size)
-		return NULL;
-
-	return node->items + i;
-}
-
-
-int ab_keys(ab_Node *node, char *array)
-{
-	int i, n = 0;
-	for (i = 0; i < node->size; i++) {
-		ab_NodeItem* item = node->items + i;
-
-		if (item->flag & AB_ITEM_ON) {
-			if (array)
-				array[n] = item->letter;
-			n++;
-		}
-	}
-
-	return n;
-}
-
-ab_NodeItem *ab_itemAt(Node *node, int index)
-{
-	assert(index >= 0);
-	assert(index < node->size);
-	return node->items + index;
-}
-
-int ab_itemIndex(ab_Node *node, ab_NodeItem* item)
-{
-	return item->letter - ab_nodeFrom(node);
-}
-
-#if 0
-char ab_keyAt(ab_Node *node, int index)
-{
-}
-#endif
-
 static void ab_nodeGrow(ab_Node *node, int from, int to)
 {
 	int offset = ab_nodeFrom(node) - from;
@@ -91,14 +26,20 @@ static void ab_nodeGrow(ab_Node *node, int from, int to)
 	// TODO
 	// node->items = ab_nodeItemsNewFrom(node->size, src, offset, size0);
 
-	node->items = ab_nodeItemsNew(node->size);
+	node->items = ab_newItems(node->size);
 	memcpy(node->items + offset, src, size0 * sizeof(ab_NodeItem));
 
 	ea_freeArray(ab_NodeItem, size0, src);
 }
 
 
-static void ab_nodeDelItem(ab_Node *node, ab_NodeItem *item)
+
+/*
+ *     NODE INTERFACE
+ */
+
+
+static void ab_delItem(ab_Node *node, ab_NodeItem *item)
 {
 	int from = ab_nodeFrom(node);
 	int to = ab_nodeTo(node);
@@ -143,7 +84,7 @@ static void ab_nodeDelItem(ab_Node *node, ab_NodeItem *item)
 	//items = ab_nodeItemsNewFrom(size, node->items, i, size);
 	AB_D printf("nodeShrink copy from %d size=%d\n", i, size);
 
-	items = ab_nodeItemsNew(size);
+	items = ab_newItems(size);
 	memcpy(items, node->items + i, size * sizeof(ab_NodeItem)) ;
 
 
@@ -172,7 +113,7 @@ static void ab_addItem(ab_Node *node, int c, ab_Wood *sub, int haveval,
 
 	if (node->items == NULL) {
 		node->size = 1;
-		node->items = ab_nodeItemsNew(1);
+		node->items = ab_newItems(1);
 		item = node->items;
 	} else {
 		int from = ab_nodeFrom(node);
@@ -199,9 +140,62 @@ static void ab_addItem(ab_Node *node, int c, ab_Wood *sub, int haveval,
 	item->letter = c;
 
 	if (sub)
-		ab_nodeSetSub(node, item, sub);
+		ab_setItemWood(node, item, sub);
 
 	if (haveval)
-		ab_nodeSetValue(node, item, val);
+		ab_setItemValue(node, item, val);
+}
+
+
+/* item lookup */
+static ab_NodeItem* ab_lookupItem(ab_Node *node, int c)
+{
+	int i, from;
+
+	if (!node->items)
+		return NULL;
+
+	from = ab_nodeFrom(node);
+
+	if (c < from)
+		return NULL;
+
+	i = c - from;
+
+	if (i >= node->size)
+		return NULL;
+
+	return node->items + i;
+}
+
+
+int ab_getKeys(ab_Node *node, char *array)
+{
+	int i, n = 0;
+	for (i = 0; i < node->size; i++) {
+		ab_NodeItem* item = node->items + i;
+
+		if (item->flag & AB_ITEM_ON) {
+			if (array)
+				array[n] = item->letter;
+			n++;
+		}
+	}
+
+	return n;
+}
+
+
+ab_NodeItem *ab_getItem(ab_Node *node, int index)
+{
+	assert(index >= 0);
+	assert(index < node->size);
+	return node->items + index;
+}
+
+
+int ab_getIndex(ab_Node *node, ab_NodeItem* item)
+{
+	return item->letter - ab_nodeFrom(node);
 }
 
