@@ -178,7 +178,7 @@ int natSearchPI(int *arr, int size, int x)
     return -1 - findex;
 }
 
-
+#ifdef CHECK_CONSISTENCY
 void checkConsistency(int *a, int from, int to, int dx, int size)
 {
 	int x = from;
@@ -187,7 +187,7 @@ void checkConsistency(int *a, int from, int to, int dx, int size)
 
 	while (x < to) {
 		int rb = binSearch(a, size, x);
-		int rn = natSearch(a, size, x);
+		int rn = natSearchPI(a, size, x);
 		x += dx;
 
 		if (rb != rn) {
@@ -203,6 +203,7 @@ void checkConsistency(int *a, int from, int to, int dx, int size)
 	
 	printf("check consistency...done\n");
 }
+#endif
 
 
 void bench(int mode, int *a, int size, int density)
