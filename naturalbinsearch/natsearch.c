@@ -4,113 +4,124 @@
 
 #include "lib.c"
 
-#define SAMPLES 10000000
-
-#define DBG if (1)
+#define SEED 1024
 
 
-int binSearch(int *arr, int size, int num)
+int linSearch(int *arr, int size, int x)
 {
-    int low = 0;
-	int high = size -1;
+	int index = 0;
+	int i;
 
-    while (low <= high) {
-        int mid = (low + high) / 2;
-    
-        if (arr[mid] == num ) {
-         
-            return mid;
-         
-        } else if ( arr[mid] > num) {
-         
-            high = mid - 1;
-         
-        } else if ( arr[mid] < num) {
-         
-            low = mid + 1;
-         
-        }
-    }
+	printf("linear-search x=%d:\n",  x);
 
-    
-    return -1 - low;
+	for(i = 0; i < size; i++) {
+		if (x <= arr[i])
+			return (x == arr[i]) ? index : (-1 - index);
+
+		index++;
+	}
+
+    return -1 - index;
 }
 
 
-int natSearch(int *arr, int size, int x)
+int binSearch(int *arr, int size, int x)
 {
 	int m, f, t, k;
     int findex = 0;
 	int tindex = size - 1;
 
-	printf("x=%d\n",  x);
-
-#ifdef NATSEARCH_PRE
-	f = arr[findex];
-	t = arr[tindex];
-	k = tindex - findex;
-
-	if (x <= f) {
-		if (x == f)
-			return findex;
-
-		return -1 - findex;
-	}
-
-	if (x >= t) {
-		if (x == t)
-			return tindex;
-
-		return -1 - tindex - 1;
-	}
-		
-
-	if (x < (f+k))
-		tindex = findex + x - f;
-
-	if (x > (t-k))
-		findex = findex + k + x - t;
-#endif
-
+	printf("bin-search x=%d:\n",  x);
 
 
     while (findex <= tindex) {
         int mindex = (findex + tindex) / 2;
 		m = arr[mindex];
 
-		printf("mid(%d, %d = %d) = %d x=%d: ", findex, tindex, mindex, m, x);
+		//printf("  mid(%d, %d) = mid(%d) = %d: ", findex, tindex, mindex, m);
 
         if (x > m) {
-			DBG printf(" x > mid ");
-         	findex = mindex + 1;
-
-#ifdef NATSEARCH_INSIDE
-			k = tindex - findex;
-			f = m;
-			DBG printf("mid f = %d k = %d", f, k);
-
-			if (x < (f + k)) {
-				tindex = findex + x - f;
-				DBG printf(" -> limit t=%d", tindex);
-			}
-#endif
+			//printf(" x > mid ");
+			findex = mindex + 1;
         } else if (x < m) {
-			DBG printf(" x < mid ");
-        	tindex = mindex - 1;
-#ifdef NATSEARCH_INSIDE
-			k = tindex - findex;
-            t = m;
-			DBG printf("t = %d k = %d", t, k);
-			if (x > (t - k)) {
-				findex = findex + k + x - t;
-				DBG printf(" -> limit f=%d", findex);
-			} 
-#endif
+			//printf(" x < mid ");
+			tindex = mindex - 1;
         } else {
-			DBG printf(" -> found\n");
+			//printf(" -> found\n");
             return mindex;
 		}
-			
+
+		//printf("\n");
+
+    }
+
+    return -1 - findex;
+}
+
+
+int natSearchP(int *arr, int size, int x)
+{
+	int m, f, t, k;
+    int findex = 0;
+	int tindex = size - 1;
+
+	printf("natural-search-pre x=%d:\n",  x);
+
+	f = arr[findex];
+	t = arr[tindex];
+	k = tindex - findex;
+
+	/* LIMIT CHECK */
+	if (x <= f) {
+		if (x == f) {
+			printf("  x = first\n");
+			return findex;
+		}
+
+		printf("  out of bound (x < f)\n");
+		return -1 - findex;
+	}
+
+	if (x >= t) {
+		if (x == t) {
+			printf("  x = last\n");
+			return tindex;
+		}
+
+		printf("  out of bound (x > t)\n");
+		return -1 - tindex - 1;
+	}
+
+
+	/* PRE */
+	if (x < (f+k)) {
+		tindex = findex + x - f;
+		printf("  pre-limit t=%d\n", tindex);
+	}
+
+	if (x > (t-k)) {
+		findex = findex + k + x - t;
+		printf("  pre-limit f=%d\n", findex);
+	}
+
+
+    while (findex <= tindex) {
+        int mindex = (findex + tindex) / 2;
+		m = arr[mindex];
+
+		printf("  mid(%d, %d) = mid(%d) = %d: ", findex, tindex, mindex, m);
+
+        if (x > m) {
+			printf(" x > mid ");
+			findex = mindex + 1;
+        } else if (x < m) {
+			printf(" x < mid ");
+			tindex = mindex - 1;
+        } else {
+			printf(" -> found\n");
+            return mindex;
+		}
+
 		printf("\n");
 
     }
@@ -120,9 +131,181 @@ int natSearch(int *arr, int size, int x)
 
 
 
+int natSearchPI(int *arr, int size, int x)
+{
+	int m, f, t, k;
+    int findex = 0;
+	int tindex = size - 1;
+
+	printf("natural-search-pre-ins x=%d:\n",  x);
+
+	f = arr[findex];
+	t = arr[tindex];
+	k = tindex - findex;
+
+	/* LIMIT CHECK */
+	if (x <= f) {
+		if (x == f) {
+			printf("  x = first\n");
+			return findex;
+		}
+
+		printf("  out of bound (x < f)\n");
+		return -1 - findex;
+	}
+
+	if (x >= t) {
+		if (x == t) {
+			printf("  x = last\n");
+			return tindex;
+		}
+
+		printf("  out of bound (x > t)\n");
+		return -1 - tindex - 1;
+	}
+
+
+	/* PRE */
+	if (x < (f+k)) {
+		tindex = findex + x - f;
+		printf("  pre-limit t=%d\n", tindex);
+	}
+
+	if (x > (t-k)) {
+		findex = findex + k + x - t;
+		printf("  pre-limit f=%d\n", findex);
+	}
+
+
+
+
+    while (findex <= tindex) {
+        int mindex = (findex + tindex) / 2;
+		m = arr[mindex];
+
+		printf("  mid(%d, %d) = mid(%d) = %d: ", findex, tindex, mindex, m);
+
+        if (x > m) {
+			printf(" x > mid ");
+			findex = mindex + 1;
+
+			/* INSIDE */
+			k = tindex - findex;
+			f = m;
+			printf("mid f = %d k = %d", f, k);
+
+			if (x < (f + k)) {
+				tindex = findex + x - f;
+				printf(" -> limit t=%d", tindex);
+			}
+        } else if (x < m) {
+			printf(" x < mid ");
+			tindex = mindex - 1;
+
+			/* INSIDE */
+			k = tindex - findex;
+            t = m;
+			printf("t = %d k = %d", t, k);
+			if (x > (t - k)) {
+				findex = findex + k + x - t;
+				printf(" -> limit f=%d", findex);
+			}
+        } else {
+			printf(" -> found\n");
+            return mindex;
+		}
+
+		printf("\n");
+
+    }
+
+    return -1 - findex;
+}
+
+
+
+int natSearchI(int *arr, int size, int x)
+{
+	int m, f, t, k;
+    int findex = 0;
+	int tindex = size - 1;
+
+	printf("natural-search-ins x=%d:\n",  x);
+
+	f = arr[findex];
+	t = arr[tindex];
+	k = tindex - findex;
+
+	/* LIMIT CHECK */
+	if (x <= f) {
+		if (x == f) {
+			printf("  x = first\n");
+			return findex;
+		}
+
+		printf("  out of bound (x < f)\n");
+		return -1 - findex;
+	}
+
+	if (x >= t) {
+		if (x == t) {
+			printf("  x = last\n");
+			return tindex;
+		}
+
+		printf("  out of bound (x > t)\n");
+		return -1 - tindex - 1;
+	}
+
+    while (findex <= tindex) {
+        int mindex = (findex + tindex) / 2;
+		m = arr[mindex];
+
+		printf("  mid(%d, %d) = mid(%d) = %d: ", findex, tindex, mindex, m);
+
+        if (x > m) {
+			printf(" x > mid ");
+			findex = mindex + 1;
+
+			/* INSIDE */
+			k = tindex - findex;
+			f = m;
+			printf("mid f = %d k = %d", f, k);
+
+			if (x < (f + k)) {
+				tindex = findex + x - f;
+				printf(" -> limit t=%d", tindex);
+			}
+        } else if (x < m) {
+			printf(" x < mid ");
+			tindex = mindex - 1;
+
+			/* INSIDE */
+			k = tindex - findex;
+            t = m;
+			printf("t = %d k = %d", t, k);
+			if (x > (t - k)) {
+				findex = findex + k + x - t;
+				printf(" -> limit f=%d", findex);
+			}
+        } else {
+			printf(" -> found\n");
+            return mindex;
+		}
+
+		printf("\n");
+
+    }
+
+    return -1 - findex;
+}
+
+
+
+
 int main(int argc, char *argv[])
 {
-	int size, density, x;
+	int size, density, x, r;
 	int *sequence;
 
 	if (argc < 3) {
@@ -134,13 +317,27 @@ int main(int argc, char *argv[])
 	density = atoi(argv[2]);
 	x = atoi(argv[3]);
 
-	sequence = createSequence(size, density);
+	sequence = createSequence(SEED, size, density);
 
-	printSequence(sequence, size, 1);
+	printSequence(sequence, size, 30);
 
 	printf("size = %d cf = %.2f\n", size, getCF(sequence, size));
 
-	natSearch(sequence, size, x);
+	r = linSearch(sequence, size, x);
+	printf(" r = %d\n\n", r);
+
+	r = binSearch(sequence, size, x);
+	printf(" r = %d\n\n", r);
+
+	r = natSearchI(sequence, size, x);
+	printf(" r = %d\n\n", r);
+
+	r = natSearchP(sequence, size, x);
+	printf(" r = %d\n\n", r);
+
+	r = natSearchPI(sequence, size, x);
+	printf(" r = %d\n\n", r);
+
 
 	free(sequence);
 }
