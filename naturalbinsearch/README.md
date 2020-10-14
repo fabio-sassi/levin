@@ -231,19 +231,20 @@ Where:
     'X'    bound by (1) and (2)
 
 
+
 #### Compactness factor
 
 It is interesting to note that (H12) talks about the compactness of the
 sequence. Defining a compactness factor as:
 
 
-    cf = (xk - x0) / k
+    cf = k / (xk - x0)
 
 
 the prerequisite (H12) can be written as:
 
 
-    cf < 2
+    cf > 1/2
 
 
 If the sequence is complete 
@@ -255,17 +256,17 @@ If the sequence is complete
 then
 
 
-    cf = (xk - x0) / k = (k - 0) / k = 1
+    cf = k / (xk - x0) = k / (k - 0) = 1
 
 
 
-The compacteness factor `cf` can assume any value greater or equal than 1
+The compacteness factor `cf` can assume any value less or equal than 1
 
     
-    cf >= 1
+    cf <= 1
 
 
-The smaller `cf` is, the greater can be the bound effect
+The greater `cf` is, the greater can be the bound effect
 and so the efficency. 
 
 
