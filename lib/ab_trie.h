@@ -1,6 +1,6 @@
 /* MIT License
  *
- * Copyright (c) 2019 Fabio Sassi <fabio dot s81 at gmail dot com>
+ * Copyright (c) 2020 Fabio Sassi <fabio dot s81 at gmail dot com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -135,24 +135,16 @@ typedef struct {
 
 
 
-/* TODO
- * an integer can be used in place of at.item to locate the nodeitem in
- * the node. The union at.{brpos, item} can be replace by a single int index;
- *
- */
 
 typedef struct {
 	ab_Wood *wood;
 	union {
-		ab_NodeItem *item;
+		int itemindex;
 		int brpos;
 	} at;
 } ab_Cursor;
 
 
-/* TODO
- * lo.bpos can be removed, cursors.at.brpos can be used instead
- */
 
 typedef struct {
 	int status;

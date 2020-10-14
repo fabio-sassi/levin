@@ -1,6 +1,6 @@
 /* MIT License
  *
- * Copyright (c) 2019 Fabio Sassi <fabio dot s81 at gmail dot com>
+ * Copyright (c) 2020 Fabio Sassi <fabio dot s81 at gmail dot com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,14 +28,172 @@
 
 #include "ab_trie.h"
 
-#include "ab_nodeitems_list.c"
-
 #define AB_WRONGTYPE() ea_fatal("unexpected wood-kind at line %d", __LINE__)
 
 static int ab_kind(ab_Wood *w)
 {
 	return w->flag & (AB_NODE | AB_BRANCH);
 }
+
+
+/*
+ *  SECTION:  NODE ITEM INTERFACE
+ */
+
+
+int ab_binSearch(ab_Node *node, int x)
+{
+	int findex = 0;
+	int tindex = node->size - 1;
+
+	while (findex <= tindex) {
+		int mindex = (findex + tindex) / 2;
+		int m = node->items[mindex].letter;
+
+		if (x > m) {
+			findex = mindex + 1;
+		} else if (x < m) {
+			tindex = mindex - 1;
+		} else {
+			return mindex;
+		}
+	}
+
+	return -1 - findex;
+}
+
+
+
+
+static ab_NodeItem *ab_newItems(int size)
+{
+	ab_NodeItem *items = ea_allocArray(ab_NodeItem, size);
+	memset(items, 0, size*sizeof(ab_NodeItem));
+
+	return items;
+}
+
+static void ab_freeItems(ab_Node *node)
+{
+	if (node->size)
+		ea_freeArray(ab_NodeItem, node->size, node->items);
+}
+
+
+static void ab_delItem(ab_Node *node, int index)
+{
+	ab_NodeItem *src = node->items;
+	ab_NodeItem *dst;
+
+	assert(index >= 0);
+	assert(node->size > 1);
+
+	dst = ab_newItems(node->size - 1);
+
+	AB_D printf("ab_delItem: delete index %d\n", index);
+
+	if (index == 0) {
+		memcpy(dst, src+1, (node->size-1) * sizeof(ab_NodeItem));
+	} else if (index == (node->size-1)) {
+		memcpy(dst, src, (node->size-1) * sizeof(ab_NodeItem));
+	} else {
+		size_t size1 = (index-1) * sizeof(ab_NodeItem);
+		size_t size2 = (node->size - 1 - index) * sizeof(ab_NodeItem);
+		memcpy(dst, src, size1);
+		memcpy(dst+index+1, src+index, size2);
+	}
+
+	ea_freeArray(ab_NodeItem, node->size, src);
+	node->items = dst;
+	node->size--;
+}
+
+
+
+static ab_NodeItem* ab_addItemNode(ab_Node *node, int c)
+{
+	ab_NodeItem *item;
+
+	AB_D printf("nodeIns: char=%d'%c' size0 = %d\n", c, c, node->size);
+
+	if (node->items == NULL) {
+		node->size = 1;
+		node->items = ab_newItems(1);
+		item = node->items;
+	} else {
+		ab_NodeItem *dst = ab_newItems(node->size + 1);
+		ab_NodeItem *src = node->items;
+		int index = -ab_binSearch(node, c) - 1;
+
+		assert(index >= 0);
+
+		if (index == 0) {
+			memcpy(dst+1, src, node->size * sizeof(ab_NodeItem));
+		} else if (index == node->size) {
+			memcpy(dst, src, node->size * sizeof(ab_NodeItem));
+		} else {
+			size_t sz1 = index * sizeof(ab_NodeItem);
+			size_t sz2 = (node->size - index) * sizeof(ab_NodeItem);
+			memcpy(dst, src, sz1);
+			memcpy(dst+index+1, src+index, sz2);
+		}
+
+		node->items = dst;
+		node->size++;
+		ea_freeArray(ab_NodeItem, node->size, src);
+
+		item = node->items + index;
+	}
+
+	AB_D printf("nodeIns: size = %d\n", node->size);
+
+	item->flag = AB_ITEM_ON;
+	item->letter = c;
+
+	return item;
+}
+
+
+/* item lookup
+ */
+static int ab_lookupItem(ab_Node *node, int c)
+{
+	return ab_binSearch(node, c);
+}
+
+
+static int ab_getKeys(ab_Node *node, char *array)
+{
+	int i, n = 0;
+	for (i = 0; i < node->size; i++) {
+		ab_NodeItem* item = node->items + i;
+
+		if (item->flag & AB_ITEM_ON) {
+			if (array)
+				array[n] = item->letter;
+			n++;
+		}
+	}
+
+	return n;
+}
+
+
+static ab_NodeItem *ab_getItem(ab_Node *node, int index)
+{
+	assert(index >= 0);
+	assert(index < node->size);
+	return node->items + index;
+}
+
+
+
+
+
+/*
+ *  SECTION: DEBUG PRINT
+ */
+
 
 static const char* ab_labelKind(ab_Wood *w)
 {
@@ -45,7 +203,6 @@ static const char* ab_labelKind(ab_Wood *w)
 	}
 	return "WOOD????";
 }
-
 
 
 #define AB_CASE(f) case f: return #f
@@ -71,11 +228,6 @@ static const char *ab_labelStatus(int status)
 #undef AB_CASE
 
 
-/*
- *  SECTION: debug print
- */
-
-
 static void ab_printIndent(int indent)
 {
 	while(indent-- > 0)
@@ -84,7 +236,7 @@ static void ab_printIndent(int indent)
 	fflush(stdout);
 }
 
-static void ab_printNodeItem(ab_NodeItem *item, int indent)
+static void ab_printItemNode(ab_NodeItem *item, int indent)
 {
 	if (indent > 0)
 		ab_printIndent(indent);
@@ -168,7 +320,7 @@ static void ab_printNode(ab_Node *node, int indent, int recursive)
 		else
 			printf("[ 0x%.2X ] ", (unsigned)c);
 
-		ab_printNodeItem(item, -1);
+		ab_printItemNode(item, -1);
 
 		if (item->flag & AB_ITEM_VAL) {
 			assert(item->v < node->vsize);
@@ -205,11 +357,14 @@ static void ab_printCursor(ab_Cursor *c, int indent)
 
 	switch(ab_kind(c->wood)) {
 		case AB_NODE:
-			if (c->at.item)
-				ab_printNodeItem(c->at.item, indent+2);
-			else
+			if (c->at.itemindex >= 0) {
+				ab_Node *node = (ab_Node*)c->wood;
+				ab_NodeItem *item;
+				item = ab_getItem(node, c->at.itemindex);
+				ab_printItemNode(item, indent+2);
+			} else {
 				printf("NULL");
-
+			}
 			break;
 
 		case AB_BRANCH:
@@ -232,7 +387,7 @@ static void ab_printBranchKey(ab_Branch *b, int indent)
 	for (i = 0; i < b->len; i++)
 		printf("%c", b->kdata[i]);
 
-	printf((b->flag & AB_BRANCH_VAL) ? "$\n" : "\n");
+	printf((b->flag & AB_BRANCH_VAL) ? "(*)\n" : "\n");
 
 	if (b->sub)
 		ab_printKeys(b->sub, indent + b->len);
@@ -252,14 +407,14 @@ static void ab_printNodeKeys(ab_Node *node, int indent)
 			ab_printIndent(indent);
 
 			if (item->flag & AB_ITEM_VAL)
-				printf("#%c$", item->letter);
+				printf("[%c](*)", item->letter);
 			else
-				printf("#%c ", item->letter);
+				printf("[%c]   ", item->letter);
 
 			printf("\n");
 
 			if (item->flag & AB_ITEM_SUB) {
-				ab_printKeys(node->subs[item->n], indent + 2);
+				ab_printKeys(node->subs[item->n], indent + 3);
 			}
 		}
 	}
@@ -269,8 +424,10 @@ static void ab_printNodeKeys(ab_Node *node, int indent)
 
 
 
+
+
 /*
- *  SECTION: lookup
+ *  SECTION: TRIE LOOKUP
  */
 
 
@@ -314,14 +471,14 @@ static void ab_pushCursor(ab_Look *lo, ab_Wood *w)
 
 		case 2:
 			lo->path[0].wood = lo->path[1].wood;
-			lo->path[0].at.item = lo->path[1].at.item;
+			lo->path[0].at.itemindex = lo->path[1].at.itemindex;
 			lo->path[1].wood = lo->path[2].wood;
-			lo->path[1].at.item = lo->path[2].at.item;
+			lo->path[1].at.itemindex = lo->path[2].at.itemindex;
 			break;
 
 		default:
 			ea_fatal("ab_pushCursor: unexpected ipath = %d",
-				 lo->ipath);
+			         lo->ipath);
 	}
 
 	AB_D printf("luNext - ipath++ = %d\n", lo->ipath);
@@ -329,7 +486,7 @@ static void ab_pushCursor(ab_Look *lo, ab_Wood *w)
 
 	last = lo->path + lo->ipath;
 	last->wood = w;
-	last->at.item = NULL;
+	last->at.itemindex = -1;
 
 }
 
@@ -338,18 +495,24 @@ static int ab_lookupNode(ab_Look *lo)
 {
 	ab_Cursor *current = ab_current(lo);
 	ab_Node *node = (ab_Node*)(current->wood);
-	ab_NodeItem *item = ab_lookupItem(node, lo->key[lo->ipos]);
+	ab_NodeItem *item;
+	int index;
 
-	current->at.item = item;
+	index = ab_lookupItem(node, lo->key[lo->ipos]);
 
-	AB_D printf("lo-n: item%s exists\n", (item) ? "" : " don't");
+	current->at.itemindex = index;
 
-	AB_D if (item) ab_printNodeItem(item, 4);
+	AB_D printf("lo-n: item index = %d\n", index);
 
-	if (!item) {
+
+	if (index < 0) {
 		lo->status = AB_LKUP_NODE_NOITEM;
 		return false;
 	}
+
+	item = ab_getItem(node, index);
+
+	AB_D ab_printItemNode(item, 4);
 
 	if (!(item->flag & AB_ITEM_ON)) {
 		lo->status = AB_LKUP_NODE_NOITEM;
@@ -438,9 +601,11 @@ static int ab_lookupBranch(ab_Look *lo)
 static ab_Wood* ab_firstNode(ab_Look *lo, ab_Wood *w, int *letter, int bottom)
 {
 	ab_Node *node = (ab_Node*)w;
-	ab_NodeItem* item = ab_getItem(node, (bottom) ? (node->size - 1) : 0);
+	int index = (bottom) ? (node->size - 1) : 0;
+	ab_NodeItem* item = ab_getItem(node, index);
 
-	ab_current(lo)->at.item = item;
+	ab_current(lo)->at.itemindex = index;
+
 
 	AB_D printf("ab_first: kind=node\n");
 
@@ -525,16 +690,16 @@ static ab_Wood* ab_firstNext(ab_Look *lo, ab_Wood *current, char *buf,
 	return r;
 }
 
+
 static void ab_setCursor(ab_Cursor *c, ab_Wood *wood)
 {
 	c->wood = wood;
 
 	switch(ab_kind(wood)) {
-		case AB_NODE: {
-			ab_Node *node = (ab_Node*)wood;
-			c->at.item = ab_getItem(node, 0);
+		case AB_NODE:
+			c->at.itemindex = 0;
 			break;
-		}
+
 
 		case AB_BRANCH:
 			c->at.brpos = 0;
@@ -546,25 +711,10 @@ static void ab_setCursor(ab_Cursor *c, ab_Wood *wood)
 }
 
 
+
 /*
- *  SECTION: instance/free
+ *  SECTION: INSTANCE/FREE
  */
-
-
-static ab_NodeItem *ab_newItems(int size)
-{
-	ab_NodeItem *items = ea_allocArray(ab_NodeItem, size);
-	memset(items, 0, size*sizeof(ab_NodeItem));
-
-	return items;
-}
-
-static void ab_freeItems(ab_Node *node)
-{
-	if (node->size)
-		ea_freeArray(ab_NodeItem, node->size, node->items);
-}
-
 
 static ab_Node* ab_newNode(int size)
 {
@@ -632,18 +782,19 @@ static void ab_freeNode(ab_Node *node)
 
 
 /*
- *  SECTION: set
+ *  SECTION: SET
  */
 
 
 /*
  *
  */
-static void ab_setItemWood(ab_Node *node, ab_NodeItem *item, ab_Wood *sub)
+static void ab_setItemChild(ab_Node *node, ab_NodeItem *item, ab_Wood *sub)
 {
 	int last = node->nsize;
 
 	assert(!(item->flag & AB_ITEM_SUB));
+	assert(sub);
 
 	node->nsize++;
 	node->subs = ea_resizeArray(ab_Wood*, node->nsize, node->subs);
@@ -673,7 +824,7 @@ static void* ab_setItemValue(ab_Node *node, ab_NodeItem *item, void *val)
 }
 
 
-static void ab_setBranchWood(ab_Branch *b, ab_Wood *w)
+static void ab_setBranchChild(ab_Branch *b, ab_Wood *w)
 {
 	b->sub = w;
 }
@@ -713,15 +864,19 @@ static void ab_setParentChild(ab_Look *lo, ab_Wood *w)
 	AB_D printf("parent: %zx\n", (size_t)parent->wood);
 
 	switch (ab_kind(parent->wood)) {
-		case AB_NODE:
+		case AB_NODE: {
+			ab_Node* supernode = (ab_Node*)parent->wood;
+			ab_NodeItem* item;
 			AB_D printf("setParent: node \n");
-			assert(parent->at.item);
-			((ab_Node*)parent->wood)->subs[parent->at.item->n] = w;
+			assert(parent->at.itemindex >= 0);
+			item = ab_getItem(supernode, parent->at.itemindex);
+			supernode->subs[item->n] = w;
 			break;
+		}
 
 		case AB_BRANCH:
 			AB_D printf("setParent: branch \n");
-			ab_setBranchWood(((ab_Branch*)parent->wood)->sub, w);
+			ab_setBranchChild((ab_Branch*)parent->wood, w);
 			break;
 
 		default:
@@ -740,24 +895,66 @@ static void ab_setValue(ab_Look *lo, void *value)
 	AB_D printf("setValue...\n");
 
 	switch(ab_kind(f->wood)) {
-		case AB_NODE:
-			ab_setItemValue((ab_Node*)f->wood, f->at.item, value);
-			break;
+		case AB_NODE: {
+			ab_Node *node = (ab_Node*)f->wood;
+			ab_NodeItem *item = ab_getItem(node, f->at.itemindex);
 
-		case AB_BRANCH:
+			ab_setItemValue(node, item, value);
+			break;
+		}
+
+		case AB_BRANCH: {
 			ab_setBranchValue((ab_Branch*)f->wood, value);
 			break;
+		}
 
 		default:
 			AB_WRONGTYPE();
 	}
 }
 
+/*
+ *  SECTION: GET
+ */
+
+
+void *ab_getValue(ab_Look *lo, const char* ref)
+{
+	ab_Cursor *last = lo->path + lo->ipath;
+
+	if (lo->status != AB_LKUP_FOUND)
+		ea_fatal("%s: lookup status (%s) != AB_LKUP_FOUND",
+		         ref, ab_labelStatus(lo->status));
+
+
+	switch(ab_kind(last->wood)) {
+		case AB_NODE: {
+			ab_Node *node = (ab_Node*)last->wood;
+			ab_NodeItem *item;
+
+			item = ab_getItem(node, last->at.itemindex);
+
+			if (item->flag & AB_ITEM_VAL)
+				return node->values[item->v];
+
+			return NULL;
+		}
+
+		case AB_BRANCH:
+			return ((ab_Branch*)last->wood)->value;
+
+		default:
+			AB_WRONGTYPE();
+			return NULL;
+	}
+}
+
+
 
 
 
 /*
- *  SECTION: ins
+ *  SECTION: INS
  */
 
 
@@ -771,8 +968,8 @@ static ab_Branch *ab_cutBranch(ab_Branch *src, int pos)
 
 	head = ab_newBranch(src->kdata, pos);
 	tail = ab_newBranch(src->kdata + pos, src->len - pos);
-	ab_setBranchWood(head, (ab_Wood*)tail);
-	ab_setBranchWood(tail, src->sub);
+	ab_setBranchChild(head, (ab_Wood*)tail);
+	ab_setBranchChild(tail, src->sub);
 	ab_setBranchValue(tail, src->value);
 
 	return head;
@@ -790,7 +987,7 @@ static ab_Branch *ab_cutBranch(ab_Branch *src, int pos)
  *   pos = 0: node{src[0]} -> tail{src[1:end]}
  *
  * if pos = end: the tail branch doesn't exists, return the head branch
- * linked to a terminal node 
+ * linked to a terminal node
  *
  *   pos = end: head{src[0:end-1]} -> node{src[end]}
  *
@@ -803,13 +1000,14 @@ static ab_Wood *ab_forkBranch(ab_Branch *src, int pos, ab_Node **forknode)
 {
 	ab_Node *node = ab_newNode(0);
 	ab_Branch *head = NULL;
+	ab_NodeItem *item;
 
 	assert(src->len > 0);
 	assert(pos <= src->len-1);
 
 	if (pos > 0) {
 		head = ab_newBranch(src->kdata, pos);
-		ab_setBranchWood(head, (ab_Wood*)node);
+		ab_setBranchChild(head, (ab_Wood*)node);
 	}
 
 	AB_D {
@@ -820,11 +1018,15 @@ static ab_Wood *ab_forkBranch(ab_Branch *src, int pos, ab_Node **forknode)
 
 	if (pos == src->len - 1) {
 		/* head -> node (or single node when len = 1)*/
-		int v = src->flag & AB_BRANCH_VAL;
-
 		AB_D printf("branchFork: head->sub\n");
 
-		ab_addItem(node, src->kdata[pos], src->sub, v, src->value);
+		item = ab_addItemNode(node, src->kdata[pos]);
+
+		if (src->sub)
+			ab_setItemChild(node, item, src->sub);
+
+		if (src->flag & AB_BRANCH_VAL)
+			ab_setItemValue(node, item, src->value);
 
 		//ab_printWood((ab_Wood*)head, 4, true);
 	} else {
@@ -835,9 +1037,11 @@ static ab_Wood *ab_forkBranch(ab_Branch *src, int pos, ab_Node **forknode)
 
 		tail = ab_newBranch(src->kdata+pos+1, src->len-(pos+1));
 
-		ab_addItem(node, src->kdata[pos], (ab_Wood*)tail, false, NULL);
+		item = ab_addItemNode(node, src->kdata[pos]);
 
-		ab_setBranchWood(tail, src->sub);
+		ab_setItemChild(node, item, (ab_Wood*)tail);
+
+		ab_setBranchChild(tail, src->sub);
 
 		if (src->flag & AB_BRANCH_VAL)
 			ab_setBranchValue(tail, src->value);
@@ -852,6 +1056,7 @@ static ab_Wood *ab_forkBranch(ab_Branch *src, int pos, ab_Node **forknode)
 static void ab_putOnNode(ab_Look *lo, ab_Node *node, void *value)
 {
 	int c = lo->key[lo->ipos];
+	ab_NodeItem *item;
 
 	AB_D printf("nodeAdd '%c'\n", c);
 
@@ -869,14 +1074,14 @@ static void ab_putOnNode(ab_Look *lo, ab_Node *node, void *value)
 
 		switch(lo->status) {
 			case AB_LKUP_NODE_NOITEM:
-				ab_addItem(node, c, (ab_Wood*)tail, false,
-				           NULL);
+				item = ab_addItemNode(node, c);
+				ab_setItemChild(node, item, (ab_Wood*)tail);
 				break;
 
 			case AB_LKUP_NODE_NOSUB: {
-				ab_NodeItem *item = ab_lookupItem(node, c);
-
-				ab_setItemWood(node, item, (ab_Wood*)tail);
+				ab_Cursor *last = ab_current(lo);
+				item = ab_getItem(node, last->at.itemindex);
+				ab_setItemChild(node, item, (ab_Wood*)tail);
 				break;
 			}
 
@@ -884,13 +1089,15 @@ static void ab_putOnNode(ab_Look *lo, ab_Node *node, void *value)
 				ea_fatal("ab_set: (suf) unexpected status "
 				         "%d = %s",
 				         lo->status,
-					 ab_labelStatus(lo->status)
-					 );
+				         ab_labelStatus(lo->status)
+				         );
 		}
 	} else {
 		/* only one letter => add new item */
 		assert(lo->status == AB_LKUP_NODE_NOITEM);
-		ab_addItem(node, c, NULL, true, value);
+
+		item = ab_addItemNode(node, c);
+		ab_setItemValue(node, item, value);
 	}
 }
 
@@ -914,9 +1121,9 @@ static void ab_putOnBranch(ab_Look *lo, void *value)
 
 			AB_D printf("branchAdd: abc + abcdef\n");
 			ab_Branch *b2 = ab_newBranch(lo->key + off,
-						     lo->len - off);
+			                             lo->len - off);
 			ab_setBranchValue(b2, value);
-			ab_setBranchWood(b, (ab_Wood*)b2);
+			ab_setBranchChild(b, (ab_Wood*)b2);
 			break;
 		}
 
@@ -945,6 +1152,7 @@ static void ab_putOnBranch(ab_Look *lo, void *value)
 
 			head = ab_forkBranch(b, lo->bpos, &forknode);
 
+			AB_D ab_printWood(head, 4, true);
 			/*
 			 * forkBranch create a fork-node with only one item
 			 * (branch char at position pos). The second item
@@ -964,7 +1172,7 @@ static void ab_putOnBranch(ab_Look *lo, void *value)
 
 		default:
 			ea_fatal("ab_putOnBranch: unexpected lo status %d = %s",
-				 lo->status, ab_labelStatus(lo->status));
+			         lo->status, ab_labelStatus(lo->status));
 	}
 }
 
@@ -978,12 +1186,12 @@ static void ab_put(ab_Look *lo, void *value)
 
 	switch(ab_kind(last->wood)) {
 		case AB_NODE:
-			AB_D printf("addWood: on node\n");
+			AB_D printf("ab_put: last(path) = node\n");
 			ab_putOnNode(lo, (ab_Node*)last->wood, value);
 			break;
 
 		case AB_BRANCH:
-			AB_D printf("addWood: on branch\n");
+			AB_D printf("ab_put: last(path) = branch\n");
 			ab_putOnBranch(lo, value);
 			break;
 
@@ -1007,17 +1215,17 @@ static void ab_putFirst(ab_Look *lo, void *value)
 
 
 /*
- *  SECTION: del
+ *  SECTION: DEL
  */
 
 
-static void ab_popBranchValue(ab_Branch *b)
+static void ab_unsetBranchValue(ab_Branch *b)
 {
 	b->flag = AB_BRANCH;
 	b->value = NULL;
 }
 
-static void ab_popBranchWood(ab_Branch *b)
+static void ab_unsetBranchChild(ab_Branch *b)
 {
 	b->sub = NULL;
 }
@@ -1032,9 +1240,9 @@ static void ab_popBranchWood(ab_Branch *b)
 
 
 /*
- * non è del ma è più unlink oppure pop
+ * pop child of a node item
  */
-static void ab_popItemWood(ab_Node *node, ab_NodeItem *item)
+static void ab_unsetItemNodeChild(ab_Node *node, ab_NodeItem* item)
 {
 	assert(node->nsize);
 	assert(item->flag & AB_ITEM_ON);
@@ -1043,6 +1251,7 @@ static void ab_popItemWood(ab_Node *node, ab_NodeItem *item)
 	AB_D printf("nodeDelSub...\n");
 
 	if (node->nsize == 1) {
+		assert(item->n == 0);
 		ea_freeArray(ab_Wood*, 1, node->subs);
 		node->subs = NULL;
 		node->nsize = 0;
@@ -1073,7 +1282,7 @@ static void ab_popItemWood(ab_Node *node, ab_NodeItem *item)
 }
 
 
-static void ab_popItemValue(ab_Node *node, ab_NodeItem *item)
+static void ab_unsetItemNodeValue(ab_Node *node, ab_NodeItem *item)
 {
 	assert(node->vsize);
 	assert(item->flag & AB_ITEM_ON);
@@ -1150,35 +1359,14 @@ static int ab_mergeBranch(ab_Branch *b)
 	if (b2->flag & AB_BRANCH_VAL)
 		ab_setBranchValue(b, b2->value);
 
-	ab_setBranchWood(b, b2->sub);
+	ab_setBranchChild(b, b2->sub);
 
 	ab_freeBranch(b2);
 	return true;
 }
 
 
-
-
-
-static ab_Branch *ab_newBranchAs(ab_Node *node, ab_NodeItem *item)
-{
-	ab_Branch *b;
-
-	AB_D printf("node2branch...\n");
-
-	b = ab_newBranch(&(item->letter), 1);
-
-	if (item->flag & AB_ITEM_SUB)
-		ab_setBranchWood(b, node->subs[0]);
-
-	if (item->flag & AB_ITEM_VAL)
-		ab_setBranchValue(b, node->values[0]);
-
-	return b;
-}
-
-
-static void ab_toBranch(ab_Look *lo, ab_Node *node)
+static void ab_convertNodeToBranch(ab_Look *lo, ab_Node *node)
 {
 	ab_NodeItem *item;
 	ab_Branch *b;
@@ -1187,26 +1375,33 @@ static void ab_toBranch(ab_Look *lo, ab_Node *node)
 
 	item = ab_getItem(node, 0);
 
-	b = ab_newBranchAs(node, item);
+	b = ab_newBranch(&(item->letter), 1);
 
 	AB_D printf("node2branch: new (replace) branch\n");
+
+	if (item->flag & AB_ITEM_SUB) {
+		ab_setBranchChild(b, node->subs[0]);
+		ab_unsetItemNodeChild(node, item);
+	}
+
+	if (item->flag & AB_ITEM_VAL) {
+		ab_setBranchValue(b, node->values[0]);
+		ab_unsetItemNodeValue(node, item);
+	}
+
 	AB_D ab_printBranch(b, 4, true);
-
-	if (item->flag & AB_ITEM_SUB)
-		ab_popItemWood(node, item);
-
-	if (item->flag & AB_ITEM_VAL)
-		ab_popItemValue(node, item);
-
-	ab_freeNode(node);
+	AB_D ab_printNode(node, 4, false);
 
 	ab_setParentChild(lo, (ab_Wood*)b);
+
+	ab_freeNode(node);
 
 	if (lo->ipath > 0) {
 		ab_Cursor *parent = lo->path + lo->ipath - 1;
 
 		if (ab_kind(parent->wood) == AB_BRANCH) {
 			AB_D printf("nodeUpd: merge parent...\n");
+			AB_D ab_printBranch((ab_Branch*)parent->wood, 4, true);
 			if (ab_mergeBranch((ab_Branch*)parent->wood)) {
 				AB_D printf("nodeUpd: parent merged\n");
 				b = (ab_Branch*)parent->wood;
@@ -1221,101 +1416,67 @@ static void ab_toBranch(ab_Look *lo, ab_Node *node)
 	ab_mergeBranch(b);
 }
 
-
-static void ab_popItem(ab_Look *lo)
+static void ab_delLookupItemNode(ab_Look *lo)
 {
 	ab_Cursor *last = lo->path + lo->ipath;
 	ab_Node *node = (ab_Node*)last->wood;
-	ab_NodeItem *item = last->at.item;
 
 	AB_D printf("nodeUpd: shrink\n");
-	/* ma che differenza c'è tra questo e ab_popItemWood */
-	ab_delItem(node, item);
+
+	ab_delItem(node, last->at.itemindex);
 
 	AB_D printf("nodeUpd: shrinked\n");
 	AB_D ab_printWood((ab_Wood*)node, 4, true);
 
-	if (node->size > 1)
-		return;
-
-	ab_toBranch(lo, node);
+	if (node->size == 1)
+		ab_convertNodeToBranch(lo, node);
 }
 
-static void ab_delNode(ab_Look *lo)
+/*
+ * remove reference (or link) from parent of
+ * last lookup path element
+ */
+static void ab_unlinkParent(ab_Look *lo)
 {
-	ab_Cursor *last = lo->path + lo->ipath;
-	ab_Node *node = (ab_Node*)last->wood;
-	ab_NodeItem *item = last->at.item;
+	ab_Cursor *prev;
 
-	AB_D printf("delFromNode...\n");
+	lo->ipath--;
 
-	AB_D ab_printWood((ab_Wood*)node, 4, true);
-	ab_popItemValue(node, item);
-	AB_D ab_printWood((ab_Wood*)node, 4, true);
-
-	if (item->flag & AB_ITEM_SUB)
-		/* non terminal node */
-		return;
-
-	ab_popItem(lo);
-}
-
-
-static void ab_delBranch(ab_Look *lo)
-{
-	ab_Cursor *prev, *last = lo->path + lo->ipath;
-	ab_Branch *b = (ab_Branch*)last->wood;
-
-	AB_D printf("delFromBranch...\n");
-
-	if (b->sub) {
-		/* non-terminal branch */
-		AB_D printf("delFromBranch: inside\n");
-		ab_popBranchValue(b);
-		ab_mergeBranch(b);
-		return;
-	}
-
-	if (lo->ipath == 0) {
-		/* only one wood (branch) in trie - empties trie */
-		AB_D printf("delFromBranch: root-parent\n");
-		lo->trie->root = NULL;
-		ab_freeBranch(b);
-		return;
-	}
-
-	/* terminal branch */
-	prev = lo->path + (--lo->ipath);
-
-	AB_D printf("delFromBranch: terminal branch\n");
+	prev = lo->path + lo->ipath;
 
 	switch(ab_kind(prev->wood)) {
-		case AB_NODE:
-			AB_D printf("delFromBranch: sub=node\n");
-			ab_popItemWood(((ab_Node*)(prev->wood)), prev->at.item);
+		case AB_NODE: {
+			ab_Node *node = (ab_Node*)(prev->wood);
+			ab_NodeItem *item;
 
-			if (prev->at.item->flag & AB_ITEM_VAL)
+			item = ab_getItem(node, prev->at.itemindex);
+
+			AB_D printf("delFromBranch: sub=node\n");
+
+			ab_unsetItemNodeChild(node, item);
+
+			if (item->flag & AB_ITEM_VAL)
 				break;
 
-			ab_popItem(lo);
+			ab_delLookupItemNode(lo);
 			break;
+		}
 
 		case AB_BRANCH:
 			AB_D printf("delFromBranch: sub=branch\n");
-			ab_popBranchWood((ab_Branch*)(prev->wood));
+			ab_unsetBranchChild((ab_Branch*)(prev->wood));
 			break;
 
 		default:
 			AB_WRONGTYPE();
 	}
 
-	ab_freeBranch(b);
 }
 
 
 
 /*
- *  SECTION: public method
+ *  SECTION: PUBLIC METHOD
  */
 
 
@@ -1412,7 +1573,7 @@ void ab_lookup(ab_Look *lo, ab_Trie *trie, char *key, int len)
 	lo->status = (ab_empty(trie)) ? AB_LKUP_EMPTY : AB_LKUP_INIT;
 
 	lo->path[0].wood = trie->root;
-	lo->path[0].at.item = NULL;
+	lo->path[0].at.itemindex = -1;
 }
 
 
@@ -1425,7 +1586,7 @@ int ab_lookupNext(ab_Look *lo)
 		return false;
 
 	AB_D printf("lo key[%d/%d] = '%c'\n", lo->ipos,
-		   lo->len, lo->key[lo->ipos]);
+	            lo->len, lo->key[lo->ipos]);
 
 	switch(ab_kind(ab_current(lo)->wood)) {
 		case AB_NODE:
@@ -1454,6 +1615,7 @@ int ab_find(ab_Look *lo, ab_Trie *trie, char *key, int len)
 	ab_lookup(lo, trie, key, len);
 
 	while (ab_lookupNext(lo)) {
+		// TODO check infinite loop control
 	}
 
 	return lo->status == AB_LKUP_FOUND;
@@ -1466,33 +1628,9 @@ int ab_found(ab_Look *lo)
 }
 
 
-
-
-
 void *ab_get(ab_Look *lo)
 {
-	ab_Cursor *last = lo->path + lo->ipath;
-
-	if (lo->status != AB_LKUP_FOUND)
-		ea_fatal("ab_get: lookup status (%s) != AB_LKUP_FOUND",
-		         ab_labelStatus(lo->status));
-
-
-	switch(ab_kind(last->wood)) {
-		case AB_NODE:
-			if (last->at.item->flag & AB_ITEM_VAL) {
-				ab_Node *node = (ab_Node*)last->wood;
-				return node->values[last->at.item->v];
-			}
-			return NULL;
-
-		case AB_BRANCH:
-			return ((ab_Branch*)last->wood)->value;
-
-		default:
-			AB_WRONGTYPE();
-			return NULL;
-	}
+	return ab_getValue(lo, "ab_get");
 }
 
 
@@ -1506,6 +1644,9 @@ void* ab_set(ab_Look *lo, void *value)
 	switch(lo->status) {
 		case AB_LKUP_FOUND:
 			r = ab_get(lo);
+			ab_setValue(lo, value);
+			break;
+
 		case AB_LKUP_NOVAL:
 			ab_setValue(lo, value);
 			break;
@@ -1542,28 +1683,64 @@ void* ab_set(ab_Look *lo, void *value)
 
 void* ab_del(ab_Look *lo)
 {
-	ab_Cursor *last;
-	void *r;
-
-	if (lo->status != AB_LKUP_FOUND)
-		ea_fatal("ab_del: lookup status (%s) != AB_LKUP_FOUND",
-		         ab_labelStatus(lo->status));
-
+	void *r = ab_getValue(lo, "ab_del");
+	ab_Cursor *last = lo->path + lo->ipath;
 
 	AB_D ab_printSearch(lo);
 
-	r = ab_get(lo);
-
-	last = lo->path + lo->ipath;
-
 	switch(ab_kind(last->wood)) {
-		case AB_NODE:
-			ab_delNode(lo);
-			break;
+		case AB_NODE: {
+			ab_Node *node = (ab_Node*)last->wood;
+			ab_NodeItem *item;
 
-		case AB_BRANCH:
-			ab_delBranch(lo);
+			item = ab_getItem(node, last->at.itemindex);
+
+			AB_D printf("ab_del: last(lookup) = node\n");
+			AB_D ab_printWood((ab_Wood*)node, 4, true);
+
+			ab_unsetItemNodeValue(node, item);
+
+			AB_D ab_printWood((ab_Wood*)node, 4, true);
+
+			if (item->flag & AB_ITEM_SUB) {
+				/* non terminal node */
+				break;
+			}
+
+			/* terminal node - remove node item */
+			ab_delLookupItemNode(lo);
 			break;
+		}
+
+		case AB_BRANCH: {
+			ab_Branch *b = (ab_Branch*)last->wood;
+
+			AB_D printf("ab_del: last(lookup) = branch\n");
+
+
+			if (b->sub) {
+				/* non-terminal branch */
+				AB_D printf("ab_del: non-term barch\n");
+				ab_unsetBranchValue(b);
+				ab_mergeBranch(b);
+				break;
+			}
+
+			if (lo->ipath == 0) {
+				/* only one wood in trie - empties trie */
+				AB_D printf("ab_del: last wood/branch\n");
+				lo->trie->root = NULL;
+				ab_freeBranch(b);
+				break;
+			}
+
+			/* terminal branch */
+			AB_D printf("ab_del: terminal branch\n");
+			ab_unlinkParent(lo);
+			ab_freeBranch(b);
+
+			break;
+		}
 
 		default:
 			AB_WRONGTYPE();
@@ -1579,7 +1756,7 @@ void* ab_del(ab_Look *lo)
 
 
 /*
- * ab_fist search the first (or last if `bottom` is true) element in the trie.
+ * ab_first search the first (or last if `bottom` is true) element in the trie.
  *
  * The key of this element can be stored in an optional buffer `buf` of
  * size `buflen`. If the key is bigger of `buflen` it will be truncated.
@@ -1625,13 +1802,22 @@ int ab_start(ab_Trie *trie, ab_Cursor* c)
 int ab_letter(ab_Cursor *c)
 {
 	switch(ab_kind(c->wood)) {
-		case AB_NODE:
-			assert(c->at.item);
-			return c->at.item->letter;
+		case AB_NODE: {
+			ab_Node *node = (ab_Node*)c->wood;
+			ab_NodeItem *item;
 
-		case AB_BRANCH:
-			assert(c->at.brpos < ((ab_Branch*)c->wood)->len);
-			return ((ab_Branch*)c->wood)->kdata[c->at.brpos];
+			assert(c->at.itemindex >= 0);
+
+			item = ab_getItem(node, c->at.itemindex);
+
+			return item->letter;
+		}
+
+		case AB_BRANCH: {
+			ab_Branch *branch = (ab_Branch*)c->wood;
+			assert(c->at.brpos < branch->len);
+			return branch->kdata[c->at.brpos];
+		}
 
 		default:
 			AB_WRONGTYPE();
@@ -1649,7 +1835,9 @@ int ab_value(ab_Cursor *c, void **value)
 	switch(ab_kind(c->wood)) {
 		case AB_NODE: {
 			ab_Node *node = (ab_Node*)c->wood;
-			ab_NodeItem *item = c->at.item;
+			ab_NodeItem *item;
+
+			item = ab_getItem(node, c->at.itemindex);
 
 			assert(item->flag & AB_ITEM_ON);
 
@@ -1718,16 +1906,21 @@ int ab_seek(ab_Cursor *c, int letter)
 	switch(ab_kind(c->wood)) {
 		case AB_NODE: {
 			ab_Node *node = (ab_Node*)c->wood;
-			ab_NodeItem *item = ab_lookupItem(node, letter);
+			ab_NodeItem *item;
+			int index;
 
-			if (!item)
+			index = ab_lookupItem(node, letter);
+
+			if (index < 0)
 				return false;
+
+			item = ab_getItem(node, index);
 
 			if (!(item->flag & AB_ITEM_ON))
 				return false;
 
 
-			c->at.item = item;
+			c->at.itemindex = index;
 
 			return true;
 		}
@@ -1750,17 +1943,17 @@ int ab_seekNext(ab_Cursor *c)
 	switch(ab_kind(c->wood)) {
 		case AB_NODE: {
 			ab_Node *node = (ab_Node*)c->wood;
-			ab_NodeItem *item = c->at.item;
-			int i = ab_getIndex(node, item) + 1;
+			int index = c->at.itemindex + 1;
 
-			if (i >= (node->size - 1))
+			if (index >= (node->size - 1))
 				return false;
 
-			item = ab_getItem(node, i);
+			/// FIXME
+			//item = ab_getItem(node, i);
+			//assert(item->flag & AB_ITEM_ON);
+			//assert(ab_getItem(node, index)->flag & AB_ITEM_ON);
 
-			assert(item->flag & AB_ITEM_ON);
-
-			c->at.item = item;
+			c->at.itemindex = index;
 			return true;
 		}
 
@@ -1776,8 +1969,11 @@ int ab_seekNext(ab_Cursor *c)
 
 
 /*
- * Try to go forward in the trie from the cursor position `c` and
- * save the next cursor position (if exists) in `nxt`.
+ * Try to go forward in the trie from  cursor position `c`.
+ * If there are no choices (branch)
+ * go on in string otherwise go on with the first node letter
+ *
+ * Function save the next cursor position (if exists) in `nxt`.
  *
  * Return true if exists a next cursor position.
  *
@@ -1798,7 +1994,7 @@ int ab_forward(ab_Cursor *nxt, ab_Cursor *c)
 	switch(ab_kind(c->wood)) {
 		case AB_NODE: {
 			ab_Node *node = (ab_Node*)c->wood;
-			ab_NodeItem *item = c->at.item;
+			ab_NodeItem *item = ab_getItem(node, c->at.itemindex);
 
 			assert(item->flag & AB_ITEM_ON);
 
@@ -1806,7 +2002,7 @@ int ab_forward(ab_Cursor *nxt, ab_Cursor *c)
 				return false;
 
 			AB_D printf("ab_forward...(node) have next!\n");
-			AB_D ab_printNodeItem(item, 4);
+			AB_D ab_printItemNode(item, 4);
 
 			if (nxt)
 				ab_setCursor(nxt, node->subs[item->n]);

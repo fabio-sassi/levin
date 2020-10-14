@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Fabio Sassi <fabio dot s81 at gmail dot com>
+ * Copyright (c) 2020, Fabio Sassi <fabio dot s81 at gmail dot com>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -260,7 +260,7 @@ ZMTASKDEF( tLevenshtein )
 	zmstate BRANCH: {
 		struct LevStep *prev = zmarg;
 
-		ab_next(&self->cursor, &prev->cursor);
+		ab_forward(&self->cursor, &prev->cursor);
 		self->deep = prev->deep + 1;
 		self->suffmode = prev->suffmode;
 		self->suffdist = prev->suffdist;
@@ -322,7 +322,7 @@ ZMTASKDEF( tLevenshtein )
 		            "----------------------------------------",
 		            letter);
 
-		godeep = ab_next(NULL, &self->cursor);
+		godeep = ab_forward(NULL, &self->cursor);
 
 		if (self->suffmode) {
 			void *value;
@@ -513,7 +513,9 @@ ZMTASKDEF( tProcessLev )
 		eak_free(self->results);
 
 		ea_free(Search, self);
-ZMEND }
+
+	ZMEND
+}
 
 
 
