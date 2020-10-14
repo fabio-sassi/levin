@@ -192,7 +192,7 @@ int ab_value(ab_Cursor *c, void **value);
 int ab_choices(ab_Cursor *c, char *array);
 int ab_seek(ab_Cursor *c, int letter);
 int ab_seekNext(ab_Cursor *c);
-int ab_next(ab_Cursor *nxt, ab_Cursor *c);
+int ab_forward(ab_Cursor *nxt, ab_Cursor *c);
 
 
 #endif
