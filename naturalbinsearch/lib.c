@@ -1,3 +1,6 @@
+
+#include <sys/time.h>
+
 struct timeval time1, time2;
 
 void tic()
@@ -19,7 +22,8 @@ int toc()
 
 double getCF(int *a, int size)
 {
-	return ((double)(a[size - 1] - a[0]) / (double)(size - 1));
+	int k = size - 1;
+	return (double)(k) / (double)(a[k] - a[0]);
 }
 
 double frand()
@@ -33,11 +37,10 @@ double randBool(double p)
 }
 
 
-int* createSequence(int size, int density)
+int* createSequence(unsigned int seed, int size, int density)
 {
 	int *sequence = (int*)malloc(sizeof(int) * size);
 	double d = (double)density / 100.0;
-	unsigned int seed = 1024;
 	int index = 0;
 	int x = 10;
 
@@ -56,7 +59,7 @@ int* createSequence(int size, int density)
 void printSequence(int *arr, int size, int preview)
 {
 	int i;
-	if ((!preview) || (3*preview > size)) {
+	if ((preview <= 0) || (3*preview > size)) {
 		for (i = 0; i < size; i++)
 			printf("%d ", arr[i]);
 	} else {
@@ -68,7 +71,7 @@ void printSequence(int *arr, int size, int preview)
 		for (i = size - preview; i < size; i++)
 			printf("%d ", arr[i]);
 	}
-	
+
 	printf("\n");
 }
 
@@ -98,7 +101,7 @@ int natSearch(int *arr, int size, int x)
 
 		return -1 - tindex - 1;
 	}
-		
+
 
 	if (x < (f+k))
 		tindex = findex + x - f;
