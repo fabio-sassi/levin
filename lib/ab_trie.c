@@ -32,19 +32,88 @@
 
 static int ab_kind(ab_Wood *w)
 {
-	return w->flag & (AB_NODE | AB_BRANCH);
+	return w->flag & AB_KINDMASK;
 }
 
+static const char* ab_labelKind(ab_Wood *w)
+{
+	switch(ab_kind(w)) {
+		case AB_NODE: return   "NODE";
+		case AB_BRANCH: return "BRANCH";
+	}
+	return "WOOD????";
+}
+
+static const char *ab_labelLookupAlgorithm(ab_Node *node)
+{
+	switch(node->flag) {
+		case AB_NODE | AB_NODE_LIN:
+			return "lin";
+
+		case AB_NODE | AB_NODE_BIN:
+			return "bin";
+
+		case AB_NODE | AB_NODE_NAT:
+			return "nat";
+
+		default:
+			return "lookup-algorithm-???";
+	}
+}
+
+#define AB_CASE(f) case f: return #f
+
+static const char *ab_labelStatus(int status)
+{
+	switch(status) {
+		AB_CASE(AB_LKUP_INIT);
+		AB_CASE(AB_LKUP_UNSYNC);
+		AB_CASE(AB_LKUP_EMPTY);
+		AB_CASE(AB_LKUP_FOUND);
+		AB_CASE(AB_LKUP_NOVAL);
+		AB_CASE(AB_LKUP_BRANCH_OVER);
+		AB_CASE(AB_LKUP_BRANCH_INTO);
+		AB_CASE(AB_LKUP_BRANCH_DIFF);
+		AB_CASE(AB_LKUP_NODE_NOITEM);
+		AB_CASE(AB_LKUP_NODE_NOSUB);
+		default:
+			return "AB_LKUP_STATUS???";
+	}
+}
+
+#undef AB_CASE
 
 /*
  *  SECTION:  NODE ITEM INTERFACE
  */
+
+int ab_linSearch(ab_Node *node, int x)
+{
+	int index = 0;
+	int i;
+
+	AB_D printf("ab_linSearch: %d\n", x);
+	printf("ab_linSearch: %d\n", x);
+
+	for(i = 0; i < node->size; i++) {
+		int xi = node->items[index].letter;
+		if (x <= xi) {
+			return (x == xi) ? index : (-1 - index);
+		}
+		index++;
+	}
+
+	return -1 - index;
+}
 
 
 int ab_binSearch(ab_Node *node, int x)
 {
 	int findex = 0;
 	int tindex = node->size - 1;
+
+	AB_D printf("ab_binSearch: %d\n", x);
+	printf("ab_binSearch: %d\n", x);
 
 	while (findex <= tindex) {
 		int mindex = (findex + tindex) / 2;
@@ -62,7 +131,120 @@ int ab_binSearch(ab_Node *node, int x)
 	return -1 - findex;
 }
 
+int ab_natSearch(ab_Node *node, int x)
+{
+	int f, t, k;
+	int findex = 0;
+	int tindex = node->size - 1;
 
+	f = node->items[findex].letter;
+	t = node->items[tindex].letter;
+	k = tindex - findex;
+
+	AB_D printf("ab_natSearch: %d\n", x);
+	printf("ab_natSearch: %d\n", x);
+
+	/* bound and out of range check */
+	if (x <= f) {
+		if (x == f)
+			return findex;
+
+		return -1 - findex;
+	}
+
+	if (x >= t) {
+		if (x == t)
+			return tindex;
+
+		return -1 - tindex - 1;
+	}
+
+	/* natural search limit (see naturalbinsearch/README.md) */
+	if (x < (f+k))
+		tindex = findex + x - f;
+
+	if (x > (t-k))
+		findex = findex + k + x - t;
+
+
+	/* standard binary search */
+	while (findex <= tindex) {
+		int mindex = (findex + tindex) / 2;
+		int m = node->items[mindex].letter;
+
+		if (x > m) {
+			findex = mindex + 1;
+		} else if (x < m) {
+			tindex = mindex - 1;
+		} else {
+			return mindex;
+		}
+	}
+
+	return -1 - findex;
+}
+
+
+static double ab_getNaturalSearchMinCF(int size)
+{
+	double x = (double)size;
+
+	if (size < 170) {
+		return -0.231*x + 91.0;
+	} else if (size < 240) {
+		return 52.0;
+	} else if (size < 315) {
+		return -0.32*x + 110.0;
+	} else {
+		return 9.5;
+	}
+}
+
+static void ab_setLookupAlgorithm(ab_Node *node)
+{
+	if (node->size <= 10) {
+		node->flag = AB_NODE | AB_NODE_LIN;
+	} else if (node->size < 20) {
+		node->flag = AB_NODE | AB_NODE_BIN;
+	} else {
+		int k = node->size - 1;
+		int x0 = node->items[0].letter;
+		int xk = node->items[k].letter;
+
+		double cf = 100.0 * (double)(k) / (double)(xk - x0);
+
+		AB_D printf("ab_setLookupAlg cf = %.2f\n", cf);
+
+		assert(cf >= 0);
+
+		if (cf > ab_getNaturalSearchMinCF(node->size))
+			node->flag = AB_NODE | AB_NODE_NAT;
+		else
+			node->flag = AB_NODE | AB_NODE_BIN;
+	}
+
+	AB_D printf("ab_setLookupAlg: size = %d alg  %s\n", node->size,
+	            ab_labelLookupAlgorithm(node));
+}
+
+
+static int ab_lookupItem(ab_Node *node, int c)
+{
+	switch(node->flag) {
+		case AB_NODE | AB_NODE_LIN:
+			return ab_linSearch(node, c);
+
+		case AB_NODE | AB_NODE_BIN:
+			return ab_binSearch(node, c);
+
+		case AB_NODE | AB_NODE_NAT:
+			return ab_natSearch(node, c);
+
+		default:
+			ea_fatal("unknow search algorithm");
+			return -1;
+	}
+}
 
 
 static ab_NodeItem *ab_newItems(int size)
@@ -106,6 +288,8 @@ static void ab_delItem(ab_Node *node, int index)
 	ea_freeArray(ab_NodeItem, node->size, src);
 	node->items = dst;
 	node->size--;
+
+	ab_setLookupAlgorithm(node);
 }
 
 
@@ -123,7 +307,7 @@ static ab_NodeItem* ab_addItemNode(ab_Node *node, int c)
 	} else {
 		ab_NodeItem *dst = ab_newItems(node->size + 1);
 		ab_NodeItem *src = node->items;
-		int index = -ab_binSearch(node, c) - 1;
+		int index = -ab_lookupItem(node, c) - 1;
 
 		assert(index >= 0);
 
@@ -150,19 +334,13 @@ static ab_NodeItem* ab_addItemNode(ab_Node *node, int c)
 	item->flag = AB_ITEM_ON;
 	item->letter = c;
 
+	ab_setLookupAlgorithm(node);
+
 	return item;
 }
 
 
-/* item lookup
- */
-static int ab_lookupItem(ab_Node *node, int c)
-{
-	return ab_binSearch(node, c);
-}
-
-
-static int ab_getKeys(ab_Node *node, char *array)
+static int ab_getKeys(ab_Node *node, ab_char *array)
 {
 	int i, n = 0;
 	for (i = 0; i < node->size; i++) {
@@ -194,38 +372,6 @@ static ab_NodeItem *ab_getItem(ab_Node *node, int index)
  *  SECTION: DEBUG PRINT
  */
 
-
-static const char* ab_labelKind(ab_Wood *w)
-{
-	switch(ab_kind(w)) {
-		case AB_NODE: return   "NODE";
-		case AB_BRANCH: return "BRANCH";
-	}
-	return "WOOD????";
-}
-
-
-#define AB_CASE(f) case f: return #f
-
-static const char *ab_labelStatus(int status)
-{
-	switch(status) {
-		AB_CASE(AB_LKUP_INIT);
-		AB_CASE(AB_LKUP_UNSYNC);
-		AB_CASE(AB_LKUP_EMPTY);
-		AB_CASE(AB_LKUP_FOUND);
-		AB_CASE(AB_LKUP_NOVAL);
-		AB_CASE(AB_LKUP_BRANCH_OVER);
-		AB_CASE(AB_LKUP_BRANCH_INTO);
-		AB_CASE(AB_LKUP_BRANCH_DIFF);
-		AB_CASE(AB_LKUP_NODE_NOITEM);
-		AB_CASE(AB_LKUP_NODE_NOSUB);
-		default:
-			return "AB_LKUP_STATUS???";
-	}
-}
-
-#undef AB_CASE
 
 
 static void ab_printIndent(int indent)
@@ -306,19 +452,21 @@ static void ab_printNode(ab_Node *node, int indent, int recursive)
 	ab_printIndent(indent);
 
 	printf("{node@%zx ", (size_t)node);
-	printf("(s=%d) sn=%d sv=%d", node->size, node->nsize, node->vsize);
+	printf("#%s ", ab_labelLookupAlgorithm(node));
+	printf("sz=%d sn=%d sv=%d", node->size, node->nsize, node->vsize);
 	printf("}\n");
 
 	for (i = 0; i < node->size; i++) {
 		ab_NodeItem *item = ab_getItem(node, i);
-		char c = item->letter;
+		/// TODO replace int with unsigned int
+		int c = item->letter;
 
 		ab_printIndent(indent + 2);
 
 		if (c >= 32 && c <= 126)
-			printf("[%c] ", c);
+			printf("[%c] ", (char)c);
 		else
-			printf("[ 0x%.2X ] ", (unsigned)c);
+			printf("[ 0x%.2X ] ", c);
 
 		ab_printItemNode(item, -1);
 
@@ -647,8 +795,8 @@ static ab_Wood* ab_firstBranch(ab_Look *lo, ab_Wood *w)
 }
 
 
-static ab_Wood* ab_firstNext(ab_Look *lo, ab_Wood *current, char *buf,
-                                               int buflen, int bottom)
+static ab_Wood* ab_firstNext(ab_Look *lo, ab_Wood *current, ab_char *buf,
+                                                  int buflen, int bottom)
 {
 	ab_Wood *r;
 
@@ -716,25 +864,22 @@ static void ab_setCursor(ab_Cursor *c, ab_Wood *wood)
  *  SECTION: INSTANCE/FREE
  */
 
-static ab_Node* ab_newNode(int size)
+static ab_Node* ab_newNode()
 {
 	ab_Node *result = ea_alloc(ab_Node);
 	result->flag = AB_NODE;
-	result->size = size;
+	result->size = 0;
 	result->nsize = 0;
 	result->vsize = 0;
 	result->subs = NULL;
 	result->values = NULL;
 	result->items = NULL;
 
-	if (size)
-		result->items = ab_newItems(size);
-
 	return result;
 }
 
 
-static ab_Branch* ab_newBranch(char *src, int len)
+static ab_Branch* ab_newBranch(ab_char *src, int len)
 {
 	ab_Branch *result = ea_alloc(ab_Branch);
 	assert(len < (1 << 24));
@@ -998,7 +1143,7 @@ static ab_Branch *ab_cutBranch(ab_Branch *src, int pos)
  */
 static ab_Wood *ab_forkBranch(ab_Branch *src, int pos, ab_Node **forknode)
 {
-	ab_Node *node = ab_newNode(0);
+	ab_Node *node = ab_newNode();
 	ab_Branch *head = NULL;
 	ab_NodeItem *item;
 
@@ -1561,7 +1706,7 @@ int ab_empty(ab_Trie *trie)
 
 
 
-void ab_lookup(ab_Look *lo, ab_Trie *trie, char *key, int len)
+void ab_lookup(ab_Look *lo, ab_Trie *trie, ab_char *key, int len)
 {
 	lo->trie = trie;
 	lo->key = key;
@@ -1610,7 +1755,7 @@ int ab_lookupNext(ab_Look *lo)
 }
 
 
-int ab_find(ab_Look *lo, ab_Trie *trie, char *key, int len)
+int ab_find(ab_Look *lo, ab_Trie *trie, ab_char *key, int len)
 {
 	ab_lookup(lo, trie, key, len);
 
@@ -1767,7 +1912,7 @@ void* ab_del(ab_Look *lo)
  * of key size and `buflen`.
  *
  */
-int ab_first(ab_Look *lo, ab_Trie *trie, char *buf, int buflen, int bottom)
+int ab_first(ab_Look *lo, ab_Trie *trie, ab_char *buf, int buflen, int bottom)
 {
 	ab_Wood *w = trie->root;
 
@@ -1876,7 +2021,7 @@ int ab_value(ab_Cursor *c, void **value)
 /*
  *
  */
-int ab_choices(ab_Cursor *c, char *array)
+int ab_choices(ab_Cursor *c, ab_char *array)
 {
 	switch(ab_kind(c->wood)) {
 		case AB_NODE: {

@@ -29,6 +29,28 @@
 #include "ea.h"
 
 
+/* wood flags */
+#define AB_KINDMASK  (1 | 2)
+#define AB_NODE      1
+#define AB_BRANCH    2
+
+/* branch flags */
+#define AB_BRANCH_VAL 4
+
+/* node flags */
+#define AB_NODE_ALGMASK 4
+#define AB_NODE_LIN 4
+#define AB_NODE_BIN 8
+#define AB_NODE_NAT 12
+
+/* node-item flags */
+#define AB_ITEM_OFF    0
+#define AB_ITEM_ON     1
+#define AB_ITEM_VAL    2
+#define AB_ITEM_SUB    4
+#define AB_ITEM_MASK   (AB_ITEM_ON | AB_ITEM_VAL | AB_ITEM_SUB)
+
+
 #ifndef AB_DEBUG
 	#define AB_DEBUG 0
 #endif
@@ -38,19 +60,6 @@
 #else
 	#define AB_D if (0)
 #endif
-
-
-#define AB_NODE 1
-#define AB_BRANCH 2
-
-#define AB_BRANCH_VAL 4
-
-
-#define AB_ITEM_OFF    0
-#define AB_ITEM_ON     1
-#define AB_ITEM_VAL    2
-#define AB_ITEM_SUB    4
-#define AB_ITEM_MASK   (AB_ITEM_ON | AB_ITEM_VAL | AB_ITEM_SUB)
 
 #define AB_MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -86,6 +95,7 @@ enum {
 	AB_LKUP_NOVAL
 };
 
+typedef uint8_t ab_char;
 
 #if 0
 typedef struct {
@@ -99,7 +109,7 @@ typedef struct {
 	uint8_t flag;
 	uint8_t n;
 	uint8_t v;
-	uint8_t letter;
+	ab_char letter;
 } ab_NodeItem;
 #endif
 
@@ -111,7 +121,7 @@ typedef struct {
 typedef struct {
 	uint8_t flag;
 	int len;
-	char* kdata;
+	ab_char* kdata;
 	void *value;
 	void *sub;
 } ab_Branch;
@@ -151,7 +161,7 @@ typedef struct {
 
 	ab_Trie *trie;
 
-	char *key;
+	ab_char *key;
 	int len;
 	int bpos;
 	int ipos;
@@ -173,11 +183,11 @@ void ab_free(ab_Trie* trie);
 int ab_empty(ab_Trie *trie);
 
 
-void ab_loSet(ab_Look *lo, ab_Trie *trie, char *key, int len);
+void ab_loSet(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
 int ab_loNext(ab_Look *lo);
 
-int ab_first(ab_Look *lo, ab_Trie *trie, char *buf, int buflen, int bottom);
-int ab_find(ab_Look *lo, ab_Trie *trie, char *key, int len);
+int ab_first(ab_Look *lo, ab_Trie *trie, ab_char *buf, int buflen, int bottom);
+int ab_find(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
 
 int ab_found(ab_Look *lo);
 void *ab_get(ab_Look *lo);
@@ -189,7 +199,7 @@ void* ab_del(ab_Look *lo);
 int ab_start(ab_Trie *trie, ab_Cursor* c);
 int ab_letter(ab_Cursor *c);
 int ab_value(ab_Cursor *c, void **value);
-int ab_choices(ab_Cursor *c, char *array);
+int ab_choices(ab_Cursor *c, ab_char *array);
 int ab_seek(ab_Cursor *c, int letter);
 int ab_seekNext(ab_Cursor *c);
 int ab_forward(ab_Cursor *nxt, ab_Cursor *c);
