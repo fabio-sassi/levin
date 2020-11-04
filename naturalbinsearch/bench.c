@@ -361,7 +361,27 @@ int main(int argc, char *argv[])
 	int *sequence;
 
 	if (argc < 4) {
-		printf("usage:\n\t%s mode size density [seed]\n", argv[0]);
+		printf("                                                 \n"
+		       "usage:                                           \n"
+		       "        %s mode size density [seed]              \n"
+		       "                                                 \n"
+		       "   mode       the algorithm to use:              \n"
+		       "               0 - bin-search                    \n"
+		       "               1 - natural-bin-search pre        \n"
+		       "               2 - natural-bin-search inner      \n"
+		       "               3 - natural-bin-search pre-inner  \n"
+		       "               100 - linear-search               \n"
+		       "               101 - linear-search-limit         \n"
+		       "                                                 \n"
+		       "   size       the sequence array size            \n"
+		       "                                                 \n"
+		       "   density    the sequence density %% for example\n"
+		       "              100 = 100% means that sequence have\n"
+		       "              all numbers from 0 to size-1       \n"
+		       "                                                 \n"
+		       "   seed       random number generator seed       \n"
+		       "                                                 \n",
+		       argv[0]);
 		exit(0);
 	}
 
