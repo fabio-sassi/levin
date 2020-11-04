@@ -93,7 +93,6 @@ int ab_linSearch(ab_Node *node, int x)
 	int i;
 
 	AB_D printf("ab_linSearch: %d\n", x);
-	printf("ab_linSearch: %d\n", x);
 
 	for(i = 0; i < node->size; i++) {
 		int xi = node->items[index].letter;
@@ -113,7 +112,6 @@ int ab_binSearch(ab_Node *node, int x)
 	int tindex = node->size - 1;
 
 	AB_D printf("ab_binSearch: %d\n", x);
-	printf("ab_binSearch: %d\n", x);
 
 	while (findex <= tindex) {
 		int mindex = (findex + tindex) / 2;
@@ -142,7 +140,6 @@ int ab_natSearch(ab_Node *node, int x)
 	k = tindex - findex;
 
 	AB_D printf("ab_natSearch: %d\n", x);
-	printf("ab_natSearch: %d\n", x);
 
 	/* bound and out of range check */
 	if (x <= f) {
@@ -339,7 +336,8 @@ static ab_NodeItem* ab_addItemNode(ab_Node *node, int c)
 	return item;
 }
 
-
+// TODO optimize when array=NULL return node->size
+// TODO remove AB_ITEM_ON
 static int ab_getKeys(ab_Node *node, ab_char *array)
 {
 	int i, n = 0;
@@ -2026,7 +2024,10 @@ int ab_choices(ab_Cursor *c, ab_char *array)
 	switch(ab_kind(c->wood)) {
 		case AB_NODE: {
 			ab_Node *node = (ab_Node*)c->wood;
-			return ab_getKeys(node, array);
+			if (array)
+				ab_getKeys(node, array);
+
+			return node->size;
 		}
 
 		case AB_BRANCH:
@@ -2090,7 +2091,7 @@ int ab_seekNext(ab_Cursor *c)
 			ab_Node *node = (ab_Node*)c->wood;
 			int index = c->at.itemindex + 1;
 
-			if (index >= (node->size - 1))
+			if (index >= node->size)
 				return false;
 
 			/// FIXME
@@ -2110,6 +2111,33 @@ int ab_seekNext(ab_Cursor *c)
 			AB_WRONGTYPE();
 	}
 	return false;
+}
+
+
+int ab_seekAt(ab_Cursor *c, int index)
+{
+	switch(ab_kind(c->wood)) {
+		case AB_NODE: {
+			ab_Node *node = (ab_Node*)c->wood;
+
+		        if (index < 0)
+				return false;
+
+			if (index >= node->size)
+				return false;
+
+			c->at.itemindex = index;
+			return true;
+		}
+
+		case AB_BRANCH: {
+			return index == 0;
+		}
+
+		default:
+			AB_WRONGTYPE();
+			return false;
+	}
 }
 
 
