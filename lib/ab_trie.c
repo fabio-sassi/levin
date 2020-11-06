@@ -627,7 +627,6 @@ static void ab_pushCursor(ab_Look *lo, ab_Wood *w)
 	ab_Cursor *last;
 	AB_D printf("luNext - %zx ipath=%d\n", (size_t)w, lo->ipath);
 	AB_D ab_printWood(w, 4, false);
-	lo->bpos = 0;
 
 	switch(lo->ipath) {
 		case 0:
@@ -657,8 +656,7 @@ static void ab_pushCursor(ab_Look *lo, ab_Wood *w)
 
 	last = lo->path + lo->ipath;
 	last->wood = w;
-	last->at.itemindex = -1;
-
+	last->at.itemindex = 0;
 }
 
 
@@ -716,11 +714,11 @@ static int ab_lookupBranch(ab_Look *lo)
 	ab_Cursor *current = ab_current(lo);
 	ab_Branch *b = (ab_Branch*)(current->wood);
 
-	AB_D printf("lo-b: i=%d b=%d\n", lo->ipos, lo->bpos);
+	AB_D printf("lo-b: i=%d b=%d\n", lo->ipos, current->at.brpos);
 
 	AB_D ab_printBranch(b, 4, true);
 
-	if (lo->bpos >= b->len) {
+	if (current->at.brpos >= b->len) {
 		AB_D printf("lo-b: no more char\n");
 		ab_Wood *next = b->sub;
 		/* one step over: ipos must be decremented to be a valid
@@ -738,9 +736,9 @@ static int ab_lookupBranch(ab_Look *lo)
 
 	AB_D printf("lo-b: d='%c' vs b='%c'\n",
 	            lo->key[lo->ipos],
-	            b->kdata[lo->bpos]);
+	            b->kdata[current->at.brpos]);
 
-	if (lo->key[lo->ipos] != b->kdata[lo->bpos]) {
+	if (lo->key[lo->ipos] != b->kdata[current->at.brpos]) {
 		/*  branch = abcdef, data = abcxyz */
 		lo->status = AB_LKUP_BRANCH_DIFF;
 		AB_D printf("lo-b: different char\n");
@@ -748,7 +746,7 @@ static int ab_lookupBranch(ab_Look *lo)
 	}
 
 	if (lo->ipos == lo->len - 1) {
-		if (lo->bpos == (b->len - 1)) {
+		if (current->at.brpos == (b->len - 1)) {
 			/*  branch = abc, data = abc */
 			if (b->flag & AB_BRANCH_VAL)
 				lo->status = AB_LKUP_FOUND;
@@ -762,7 +760,7 @@ static int ab_lookupBranch(ab_Look *lo)
 	}
 
 	AB_D printf("lo-b: go on\n");
-	lo->bpos++;
+	current->at.brpos++;
 
 	return true;
 
@@ -865,20 +863,7 @@ static ab_Wood* ab_firstNext(ab_Look *lo, ab_Wood *current, ab_char *buf,
 static void ab_setCursor(ab_Cursor *c, ab_Wood *wood)
 {
 	c->wood = wood;
-
-	switch(ab_kind(wood)) {
-		case AB_NODE:
-			c->at.itemindex = 0;
-			break;
-
-
-		case AB_BRANCH:
-			c->at.brpos = 0;
-			break;
-
-		default:
-			AB_WRONGTYPE();
-	}
+	c->at.itemindex = 0;
 }
 
 
@@ -1275,13 +1260,13 @@ static void ab_putOnBranch(ab_Look *lo, void *value)
 	ab_Cursor *last = ab_current(lo);
 	ab_Branch *b = (ab_Branch*)last->wood;
 
-	AB_D printf("branchAdd: i=%d b=%d\n", lo->ipos, lo->bpos);
+	AB_D printf("branchAdd: i=%d b=%d\n", lo->ipos, last->at.brpos);
 	AB_D printf("branchAdd: len=%d b.len=%d\n", lo->len, b->len);
 	assert(ab_kind((ab_Wood*)b) == AB_BRANCH);
 
 	switch(lo->status) {
 		case AB_LKUP_BRANCH_OVER: {
-			/* bpos over branch length: abc + abcdef */
+			/* brpos over branch length: abc + abcdef */
 			/* note: branch cannot be merged because
 			 * first have a value (also if it is null)
 			 */
@@ -1299,7 +1284,7 @@ static void ab_putOnBranch(ab_Look *lo, void *value)
 			/* abcdef + abc */
 			ab_Branch *head;
 			AB_D printf("branchAdd: abcdef + abc\n");
-			head = ab_cutBranch(b, lo->bpos+1);
+			head = ab_cutBranch(b, last->at.brpos+1);
 
 			/* only after parent update branch can be free */
 			ab_setParentChild(lo, (ab_Wood*)head);
@@ -1318,7 +1303,7 @@ static void ab_putOnBranch(ab_Look *lo, void *value)
 			AB_D printf("branchAdd: abcdef + abcxyz\n");
 			AB_D ab_printWood(last->wood, 4, true);
 
-			head = ab_forkBranch(b, lo->bpos, &forknode);
+			head = ab_forkBranch(b, last->at.brpos, &forknode);
 
 			AB_D ab_printWood(head, 4, true);
 			/*
@@ -1565,6 +1550,7 @@ static void ab_convertNodeToBranch(ab_Look *lo, ab_Node *node)
 	ab_freeNode(node);
 
 	if (lo->ipath > 0) {
+		/// TODO use here ab_parent or remove ab_parent
 		ab_Cursor *parent = lo->path + lo->ipath - 1;
 
 		if (ab_kind(parent->wood) == AB_BRANCH) {
@@ -1691,7 +1677,6 @@ void ab_printSearch(ab_Look *lo)
 	printf("{\n");
 
 	printf("  status: %s,\n", ab_labelStatus(lo->status));
-	printf("  bpos: %d,\n", lo->bpos);
 	printf("  ipos: %d,\n", lo->ipos);
 	printf("  ipath: %d,\n", lo->ipath);
 
@@ -1735,7 +1720,6 @@ void ab_lookup(ab_Look *lo, ab_Trie *trie, ab_char *key, int len)
 	lo->key = key;
 	lo->len = len;
 	lo->ipos = 0;
-	lo->bpos = 0;
 	lo->ipath = 0;
 
 	lo->status = (ab_empty(trie)) ? AB_LKUP_EMPTY : AB_LKUP_INIT;
@@ -1952,6 +1936,21 @@ int ab_first(ab_Look *lo, ab_Trie *trie, ab_char *buf, int buflen, int bottom)
 	lo->ipos = lo->len - 1;
 	lo->status = AB_LKUP_FOUND;
 	return lo->len;
+}
+
+
+void ab_follow(ab_Look *lo, ab_Cursor *c)
+{
+	if (lo->ipath > 0) {
+		ab_Cursor *last = ab_current(lo);
+
+		if (last->wood == c->wood)
+			return;
+	}
+
+	lo->status = ab_value(c) ? AB_LKUP_FOUND : AB_LKUP_INIT;
+	ab_pushCursor(lo, c->wood);
+	ab_current(lo)->at.itemindex = c->at.itemindex;
 }
 
 
