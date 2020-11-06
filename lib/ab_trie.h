@@ -38,7 +38,7 @@
 #define AB_BRANCH_VAL 4
 
 /* node flags */
-#define AB_NODE_ALGMASK 4
+#define AB_NODE_NDX 0
 #define AB_NODE_LIN 4
 #define AB_NODE_BIN 8
 #define AB_NODE_NAT 12

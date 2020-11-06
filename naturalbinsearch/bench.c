@@ -11,6 +11,22 @@
 int samples = 0;
 
 
+int indexSearch(int *arr, int size, int x)
+{
+	int f = arr[0];
+	int t = arr[size - 1];
+
+	if (x < f)
+		return -1;
+
+	if (x > t)
+		return -1 - size;
+
+
+	return x - f;
+}
+
+
 int linSearch(int *arr, int size, int x)
 {
 	int index = 0;
@@ -23,7 +39,7 @@ int linSearch(int *arr, int size, int x)
 		index++;
 	}
 
-    return -1 - index;
+	return -1 - index;
 }
 
 
@@ -47,7 +63,7 @@ int linSearchL(int *arr, int size, int x)
 		index++;
 	}
 
-    return -1 - index;
+	return -1 - index;
 }
 
 
@@ -55,23 +71,23 @@ int linSearchL(int *arr, int size, int x)
 int binSearch(int *arr, int size, int x)
 {
 	int m;
-    int findex = 0;
+	int findex = 0;
 	int tindex = size - 1;
 
-    while (findex <= tindex) {
-        int mindex = (findex + tindex) / 2;
+	while (findex <= tindex) {
+		int mindex = (findex + tindex) / 2;
 		m = arr[mindex];
 
-        if (x > m) {
-         	findex = mindex + 1;
-        } else if (x < m) {
-        	tindex = mindex - 1;
-        } else {
-            return mindex;
+		if (x > m) {
+			findex = mindex + 1;
+		} else if (x < m) {
+			tindex = mindex - 1;
+		} else {
+			return mindex;
 		}
-    }
+	}
 
-    return -1 - findex;
+	return -1 - findex;
 }
 
 
@@ -79,13 +95,14 @@ int binSearch(int *arr, int size, int x)
 int natSearchP(int *arr, int size, int x)
 {
 	int m, f, t, k;
-    int findex = 0;
+	int findex = 0;
 	int tindex = size - 1;
 
 	f = arr[findex];
 	t = arr[tindex];
 	k = tindex - findex;
 
+#if 1
 	if (x <= f) {
 		if (x == f)
 			return findex;
@@ -99,6 +116,13 @@ int natSearchP(int *arr, int size, int x)
 
 		return -1 - tindex - 1;
 	}
+#else
+	if (x < f)
+		return -1;
+
+	if (x > t)
+		return -1  - size;
+#endif
 
 
 	if (x < (f+k))
@@ -108,36 +132,36 @@ int natSearchP(int *arr, int size, int x)
 		findex = findex + k + x - t;
 
 
-    while (findex <= tindex) {
-        int mindex = (findex + tindex) / 2;
+	while (findex <= tindex) {
+		int mindex = (findex + tindex) / 2;
 		m = arr[mindex];
 
-        if (x > m) {
-         	findex = mindex + 1;
-        } else if (x < m) {
-        	tindex = mindex - 1;
-        } else {
-            return mindex;
+		if (x > m) {
+			findex = mindex + 1;
+		} else if (x < m) {
+			tindex = mindex - 1;
+		} else {
+			return mindex;
 		}
-    }
+	}
 
-    return -1 - findex;
+	return -1 - findex;
 }
 
 
 int natSearchI(int *arr, int size, int x)
 {
 	int m, f, t, k;
-    int findex = 0;
+	int findex = 0;
 	int tindex = size - 1;
 
 
-    while (findex <= tindex) {
-        int mindex = (findex + tindex) / 2;
+	while (findex <= tindex) {
+		int mindex = (findex + tindex) / 2;
 		m = arr[mindex];
 
-        if (x > m) {
-         	findex = mindex + 1;
+		if (x > m) {
+			findex = mindex + 1;
 
 			k = tindex - findex;
 			f = m;
@@ -145,27 +169,27 @@ int natSearchI(int *arr, int size, int x)
 			if (x < (f + k)) {
 				tindex = findex + x - f;
 			}
-        } else if (x < m) {
-        	tindex = mindex - 1;
+		} else if (x < m) {
+			tindex = mindex - 1;
 
 			k = tindex - findex;
-            t = m;
+			t = m;
 			if (x > (t - k)) {
 				findex = findex + k + x - t;
 			}
-        } else {
-            return mindex;
+		} else {
+			return mindex;
 		}
-    }
+	}
 
-    return -1 - findex;
+	return -1 - findex;
 }
 
 
 int natSearchPI(int *arr, int size, int x)
 {
 	int m, f, t, k;
-    int findex = 0;
+	int findex = 0;
 	int tindex = size - 1;
 
 	f = arr[findex];
@@ -194,12 +218,12 @@ int natSearchPI(int *arr, int size, int x)
 		findex = findex + k + x - t;
 
 
-    while (findex <= tindex) {
-        int mindex = (findex + tindex) / 2;
+	while (findex <= tindex) {
+		int mindex = (findex + tindex) / 2;
 		m = arr[mindex];
 
-        if (x > m) {
-         	findex = mindex + 1;
+		if (x > m) {
+			findex = mindex + 1;
 
 			k = tindex - findex;
 			f = m;
@@ -207,20 +231,20 @@ int natSearchPI(int *arr, int size, int x)
 			if (x < (f + k)) {
 				tindex = findex + x - f;
 			}
-        } else if (x < m) {
-        	tindex = mindex - 1;
+		} else if (x < m) {
+			tindex = mindex - 1;
 
 			k = tindex - findex;
-            t = m;
+			t = m;
 			if (x > (t - k)) {
 				findex = findex + k + x - t;
 			}
-        } else {
-            return mindex;
+		} else {
+			return mindex;
 		}
-    }
+	}
 
-    return -1 - findex;
+	return -1 - findex;
 }
 
 #ifdef CHECK_CONSISTENCY
@@ -250,11 +274,14 @@ void checkConsistency(int mode, int *a, int from, int to, int dx, int size)
 			case 3:
 				rn = natSearchPI(a, size, x);
 				break;
-			case 100:
+			case 4:
 				rn = linSearch(a, size, x);
 				break;
-			case 101:
+			case 5:
 				rn = linSearchL(a, size, x);
+				break;
+			case 10:
+				rn = indexSearch(a, size, x);
 				break;
 
 			default:
@@ -319,13 +346,17 @@ void bench(int mode, int *a, int size, int density)
 			label = "natsearch-pi";
 			fn = natSearchPI;
 			break;
-		case 100:
+		case 4:
 			label = "linearsearch";
 			fn = linSearch;
 			break;
-		case 101:
+		case 5:
 			label = "linearsearch-limit";
 			fn = linSearchL;
+			break;
+		case 10:
+			label = "indexsearch";
+			fn = indexSearch;
 			break;
 
 
@@ -361,26 +392,28 @@ int main(int argc, char *argv[])
 	int *sequence;
 
 	if (argc < 4) {
-		printf("                                                 \n"
-		       "usage:                                           \n"
-		       "        %s mode size density [seed]              \n"
-		       "                                                 \n"
-		       "   mode       the algorithm to use:              \n"
-		       "               0 - bin-search                    \n"
-		       "               1 - natural-bin-search pre        \n"
-		       "               2 - natural-bin-search inner      \n"
-		       "               3 - natural-bin-search pre-inner  \n"
-		       "               100 - linear-search               \n"
-		       "               101 - linear-search-limit         \n"
-		       "                                                 \n"
-		       "   size       the sequence array size            \n"
-		       "                                                 \n"
-		       "   density    the sequence density %% for example\n"
-		       "              100 = 100% means that sequence have\n"
-		       "              all numbers from 0 to size-1       \n"
-		       "                                                 \n"
-		       "   seed       random number generator seed       \n"
-		       "                                                 \n",
+		printf("                                                  \n"
+		       "usage:                                            \n"
+		       "        %s mode size density [seed]               \n"
+		       "                                                  \n"
+		       "   mode       the algorithm to use:               \n"
+		       "               0 - bin-search                     \n"
+		       "               1 - natural-bin-search pre         \n"
+		       "               2 - natural-bin-search inner       \n"
+		       "               3 - natural-bin-search pre-inner   \n"
+		       "               4 - linear-search                  \n"
+		       "               5 - linear-search-limit            \n"
+		       "               10 - index-search (available only  \n"
+		       "                     when density = 100)          \n"
+		       "                                                  \n"
+		       "   size       the sequence array size             \n"
+		       "                                                  \n"
+		       "   density    the sequence density %% for example \n"
+		       "              100 = 100%% means that sequence have\n"
+		       "              all numbers from 0 to size-1        \n"
+		       "                                                  \n"
+		       "   seed       random number generator seed        \n"
+		       "                                                  \n",
 		       argv[0]);
 		exit(0);
 	}
@@ -395,6 +428,10 @@ int main(int argc, char *argv[])
 	printf("density: %d\n", density);
 	printf("seed: %d\n", seed);
 
+	if ((mode == 10) && (density < 100)) {
+		printf("FATAL: density must be 100 with mode=10\n");
+		return 1;
+	}
 
 	samples = 1;
 

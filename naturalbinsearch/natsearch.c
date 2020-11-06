@@ -38,20 +38,20 @@ int binSearch(int *arr, int size, int x)
         int mindex = (findex + tindex) / 2;
 		m = arr[mindex];
 
-		//printf("  mid(%d, %d) = mid(%d) = %d: ", findex, tindex, mindex, m);
+		printf("  mid(%d, %d) = mid(%d) = %d: ", findex, tindex, mindex, m);
 
         if (x > m) {
-			//printf(" x > mid ");
+			printf(" x > mid ");
 			findex = mindex + 1;
         } else if (x < m) {
-			//printf(" x < mid ");
+			printf(" x < mid ");
 			tindex = mindex - 1;
         } else {
-			//printf(" -> found\n");
+			printf(" -> found\n");
             return mindex;
 		}
 
-		//printf("\n");
+		printf("\n");
 
     }
 

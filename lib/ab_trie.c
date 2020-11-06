@@ -47,6 +47,9 @@ static const char* ab_labelKind(ab_Wood *w)
 static const char *ab_labelLookupAlgorithm(ab_Node *node)
 {
 	switch(node->flag) {
+		case AB_NODE | AB_NODE_NDX:
+			return "ndx";
+
 		case AB_NODE | AB_NODE_LIN:
 			return "lin";
 
@@ -182,6 +185,22 @@ int ab_natSearch(ab_Node *node, int x)
 }
 
 
+int ab_indexSearch(ab_Node *node, int x)
+{
+	int f = node->items[0].letter;
+	int t = node->items[node->size - 1].letter;
+
+	if (x < f)
+		return -1;
+
+	if (x > t)
+		return -1 - node->size;
+
+
+	return x - f;
+}
+
+
 static double ab_getNaturalSearchMinCF(int size)
 {
 	double x = (double)size;
@@ -197,27 +216,30 @@ static double ab_getNaturalSearchMinCF(int size)
 	}
 }
 
+
 static void ab_setLookupAlgorithm(ab_Node *node)
 {
-	if (node->size <= 10) {
-		node->flag = AB_NODE | AB_NODE_LIN;
-	} else if (node->size < 20) {
-		node->flag = AB_NODE | AB_NODE_BIN;
-	} else {
 		int k = node->size - 1;
 		int x0 = node->items[0].letter;
 		int xk = node->items[k].letter;
 
-		double cf = 100.0 * (double)(k) / (double)(xk - x0);
-
-		AB_D printf("ab_setLookupAlg cf = %.2f\n", cf);
-
-		assert(cf >= 0);
-
-		if (cf > ab_getNaturalSearchMinCF(node->size))
-			node->flag = AB_NODE | AB_NODE_NAT;
-		else
+		if (k == (xk - x0)) {
+			node->flag = AB_NODE | AB_NODE_NDX;
+		} else if (node->size <= 10) {
+			node->flag = AB_NODE | AB_NODE_LIN;
+		} else if (node->size < 20) {
 			node->flag = AB_NODE | AB_NODE_BIN;
+		} else {
+			double cf = 100.0 * (double)(k) / (double)(xk - x0);
+
+			AB_D printf("ab_setLookupAlg cf = %.2f\n", cf);
+
+			assert(cf >= 0);
+
+			if (cf > ab_getNaturalSearchMinCF(node->size))
+				node->flag = AB_NODE | AB_NODE_NAT;
+			else
+				node->flag = AB_NODE | AB_NODE_BIN;
 	}
 
 	AB_D printf("ab_setLookupAlg: size = %d alg  %s\n", node->size,
@@ -228,6 +250,9 @@ static void ab_setLookupAlgorithm(ab_Node *node)
 static int ab_lookupItem(ab_Node *node, int c)
 {
 	switch(node->flag) {
+		case AB_NODE | AB_NODE_NDX:
+			return ab_indexSearch(node, c);
+
 		case AB_NODE | AB_NODE_LIN:
 			return ab_linSearch(node, c);
 
