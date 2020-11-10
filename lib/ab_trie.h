@@ -148,10 +148,7 @@ typedef struct {
 
 typedef struct {
 	ab_Wood *wood;
-	union {
-		int itemindex;
-		int brpos;
-	} at;
+	int atindex; /*node-item index or branch position */
 } ab_Cursor;
 
 
@@ -163,12 +160,13 @@ typedef struct {
 
 	ab_char *key;
 	int len;
-	int bpos;
 	int ipos;
 
 	int ipath;
 	ab_Cursor path[3];
 } ab_Look;
+
+
 
 
 
@@ -182,10 +180,11 @@ ab_Trie* ab_new();
 void ab_free(ab_Trie* trie);
 int ab_empty(ab_Trie *trie);
 
+// TODO rename in lookupInit and lookupIter
+void ab_lookup(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
+int ab_lookupNext(ab_Look *lo);
 
-void ab_loSet(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
-int ab_loNext(ab_Look *lo);
-
+/// TODO remove ab_first in favour of ab_pop made with cursor and ab_follow
 int ab_first(ab_Look *lo, ab_Trie *trie, ab_char *buf, int buflen, int bottom);
 int ab_find(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
 
