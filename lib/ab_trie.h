@@ -152,18 +152,14 @@ typedef struct {
 } ab_Cursor;
 
 
-
 typedef struct {
-	int status;
-
 	ab_Trie *trie;
-
-	ab_char *key;
-	int len;
-	int ipos;
-
-	int ipath;
-	ab_Cursor path[3];
+	ab_char *key;       /* lookup key (if defined) */
+	ab_Cursor path[3];  /* last 3 cursors */
+	int ipath;          /* index path */
+	int klen;           /* key length (if defined) */
+	int kpos;           /* key position (if defined) */
+	int status;         /* lookup current status */
 } ab_Look;
 
 
@@ -180,13 +176,12 @@ ab_Trie* ab_new();
 void ab_free(ab_Trie* trie);
 int ab_empty(ab_Trie *trie);
 
-// TODO rename in lookupInit and lookupIter
-void ab_lookup(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
-int ab_lookupNext(ab_Look *lo);
+int ab_lookupStart(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
+int ab_lookupIter(ab_Look *lo);
 
 /// TODO remove ab_first in favour of ab_pop made with cursor and ab_follow
 int ab_first(ab_Look *lo, ab_Trie *trie, ab_char *buf, int buflen, int bottom);
-int ab_find(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
+int ab_lookup(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
 
 int ab_found(ab_Look *lo);
 void *ab_get(ab_Look *lo);
