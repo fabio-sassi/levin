@@ -1,6 +1,6 @@
 /* MIT License
  *
- * Copyright (c) 2020 Fabio Sassi <fabio dot s81 at gmail dot com>
+ * Copyright (c) 2019-2020 Fabio Sassi <fabio dot s81 at gmail dot com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
