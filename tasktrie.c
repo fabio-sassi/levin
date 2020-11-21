@@ -126,7 +126,7 @@ ZMTASKDEF( tProcessGet )
 
 		DBG2 report("GET '%.*s'", k->length, k->data);
 
-		if (ab_find(&lo, maintrie, k->data, k->length)) {
+		if (ab_lookup(&lo, maintrie, k->data, k->length)) {
 			eaz_String *val = (eaz_String *)ab_get(&lo);
 			eaz_String *res = eaz_new(eaz_size(val) + 1);
 
@@ -218,7 +218,7 @@ ZMTASKDEF( tProcessSet )
 		DBG2 report("SET `%.*s` (value: %d bytes)", k->length,
 		            k->data, val->length);
 
-		ab_find(&lo, maintrie, k->data, k->length);
+		ab_lookup(&lo, maintrie, k->data, k->length);
 
 		if (ab_found(&lo)) {
 			eaz_String *old = (eaz_String *)ab_get(&lo);

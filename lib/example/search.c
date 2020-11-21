@@ -13,53 +13,48 @@ ab_Trie *trie;
 void set(const char *key, char *value)
 {
 	ab_Look lo;
-	ab_find(&lo, trie, (char*)key, strlen(key));
+	ab_lookup(&lo, trie, (char*)key, strlen(key));
 	ab_set(&lo, value);
 }
 
 char* countVal()
 {
 	static int counter = 0;
-	char *r = malloc(sizeof(char) * 10);
-	sprintf(r, "$%.5d$", counter++);
+	char *r = malloc(sizeof(char) * 20);
+	sprintf(r, "example-value-%.3d", counter++);
 	return r;
 }
 
-int popFirst(char *key, int size)
+void flushVerbose()
 {
-	ab_Look lo;
-	int len = ab_first(&lo, trie, key, size, true);
+	const int maxlen = 128;
+	char *key = malloc(maxlen + 1);
+	void *val;
+	int len;
 
-	if (len >= 0) {
-		char *r= (char*)ab_del(&lo);
+	printf(">> flush trie\n");
 
-		printf(">> pop '%.*s'", len, key);
-
-		if (r) {
-			printf("value='%s'", r);
-			free(r);
-		}
-
-		printf("\n");
-
-		return true;
-	} else {
-		printf(">> (empty)\n");
-		return false;
-	}
-}
-
-void flush()
-{
-	int maxlen = 200;
-	char *key = malloc(maxlen);
-
-	while(popFirst(key, maxlen)) {
+	while(len = ab_pop(trie, &val, key, maxlen)) {
+		len = (maxlen > len) ? len : maxlen;
+		key[len] = '\0';
+		printf(">> flush `%s` '%s'\n", key, (char*)val);
+		free(val);
 	}
 
 	free(key);
 }
 
+void flush()
+{
+	void *val;
+
+	printf(">> flush trie\n");
+
+	while(ab_pop(trie, &val, NULL, 0)) {
+		printf(">> flush key with value = `%s`\n", (char*)val);
+		free(val);
+	}
+}
 
 
 void recursiveGet(ab_Cursor *c, char *key, int index, char* prefix)

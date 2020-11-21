@@ -173,20 +173,21 @@ void ab_printSearch(ab_Look *lo);
 
 
 ab_Trie* ab_new();
+int ab_isEmpty(ab_Trie *trie);
 void ab_free(ab_Trie* trie);
-int ab_empty(ab_Trie *trie);
 
 int ab_lookupStart(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
 int ab_lookupIter(ab_Look *lo);
 
-/// TODO remove ab_first in favour of ab_pop made with cursor and ab_follow
-int ab_first(ab_Look *lo, ab_Trie *trie, ab_char *buf, int buflen, int bottom);
 int ab_lookup(ab_Look *lo, ab_Trie *trie, ab_char *key, int len);
+int ab_lookupFirst(ab_Look *lo, ab_char *resultkey, int maxlen);
 
 int ab_found(ab_Look *lo);
 void *ab_get(ab_Look *lo);
 void* ab_set(ab_Look *lo, void *val);
 void* ab_del(ab_Look *lo);
+
+int ab_pop(ab_Trie *trie, void **value, ab_char *removedkey, int maxlen);
 
 
 /* cursor */
@@ -198,6 +199,7 @@ int ab_seek(ab_Cursor *c, int letter);
 int ab_seekNext(ab_Cursor *c);
 int ab_seekAt(ab_Cursor *c, int index);
 int ab_forward(ab_Cursor *nxt, ab_Cursor *c);
+int ab_follow(ab_Look *lo, ab_Cursor *c);
 
 
 #endif

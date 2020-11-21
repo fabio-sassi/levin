@@ -28,7 +28,7 @@ void get(const char *key)
 	ab_Look lo;
 	char *v;
 
-	if (ab_find(&lo, trie, (ab_char*)key, strlen(key))) {
+	if (ab_lookup(&lo, trie, (ab_char*)key, strlen(key))) {
 		v = ab_get(&lo);
 
 		if (!v)
@@ -44,7 +44,7 @@ char* reverse(const char *key, int n)
 {
 	char *value = (char*)malloc(n+1);
 	int i;
-	
+
 	for (i = 0; i < n; i++)
 		value[i] = key[n - 1 - i];
 
@@ -63,7 +63,7 @@ void set(const char *key)
 	value = reverse(key, n);
 
 	ab_Look lo;
-	ab_find(&lo, trie, (ab_char*)key, n);
+	ab_lookup(&lo, trie, (ab_char*)key, n);
 	ab_set(&lo, value);
 	if (value)
 	    printf(">> set '%s' '%s'\n", key, value);
@@ -77,7 +77,7 @@ void del(const char *key)
 	char *r;
 	ab_Look lo;
 
-	ab_find(&lo, trie, (ab_char*)key, strlen(key));
+	ab_lookup(&lo, trie, (ab_char*)key, strlen(key));
 
 	if (!ab_found(&lo)) {
 		printf(">> del `%s`: key not found", key);
@@ -89,43 +89,38 @@ void del(const char *key)
 }
 
 
-int popFirst(char *key, int size)
-{
-	ab_Look lo;
-	char *r;
-
-	int len = ab_first(&lo, trie, (ab_char*)key, size, true);
-
-	if (len == -1) {
-		printf(">> (empty)\n");
-		return false;
-	}
-
-	printf(">> pop '%.*s'\n", len, key);
-
-	r  = ab_del(&lo);
-	free(r);
-
-	return true;
-}
-
 void pop()
 {
-	const int maxlen = 20;
-	char *key = malloc(maxlen);
-	popFirst(key, maxlen);
+	const int maxlen = 128;
+	char *key = malloc(maxlen+1);
+	void *val;
+	int len;
+
+	len = ab_pop(trie, &val, key, maxlen);
+
+	len = (maxlen > len) ? len : maxlen;
+	key[len] = '\0';
+	printf(">> pop `%s`\n", key);
+
+	free(val);
 	free(key);
 }
 
 
 void flush()
 {
-	int maxlen = 200;
-	char *key = malloc(maxlen);
-		
+	const int maxlen = 128;
+	char *key = malloc(maxlen + 1);
+	void *val;
+	int len;
+
 	printf(">> flush trie\n");
 
-	while(popFirst(key, maxlen)) {
+	while(len = ab_pop(trie, &val, key, maxlen)) {
+		len = (maxlen > len) ? len : maxlen;
+		key[len] = '\0';
+		printf(">> flush `%s` '%s'\n", key, (char*)val);
+		free(val);
 	}
 
 	free(key);
@@ -261,7 +256,7 @@ int main(int argc, char *argv[])
 		set("man");
 		set("many");
 		set("mars");
-	
+
 	}
 
 	fromKeyboard();

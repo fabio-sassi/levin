@@ -203,13 +203,11 @@ static void closeTasks(zm_VM *vm)
 
 static void flushTrie(ab_Trie *trie)
 {
-	ab_Look lo;
+	void *val;
 
-	while(ab_first(&lo, trie, NULL, 0, true) != -1) {
-		eaz_String *val = (eaz_String*)ab_del(&lo);
-
+	while(ab_pop(trie, &val, NULL, 0)) {
 		if (val)
-			eaz_free(val);
+			eaz_free((eaz_String*)val);
 	}
 }
 

@@ -805,97 +805,8 @@ static int ab_lookupBranch(ab_Look *lo)
 }
 
 
-static ab_Wood* ab_firstNode(ab_Look *lo, ab_Wood *w, int *letter, int bottom)
-{
-	ab_Node *node = (ab_Node*)w;
-	int index = (bottom) ? (node->size - 1) : 0;
-	ab_NodeItem* item = ab_getItem(node, index);
-
-	ab_current(lo)->atindex = index;
 
 
-	AB_D printf("ab_first: kind=node\n");
-
-	assert(node->size > 0);
-	assert(item->flag & AB_ITEM_ON);
-	assert(item->flag & (AB_ITEM_VAL | AB_ITEM_SUB));
-
-	AB_D printf("ab_first: node '%c'\n", item->letter);
-
-	*letter = item->letter;
-
-	if (item->flag & AB_ITEM_SUB) {
-		w = node->subs[item->n];
-		ab_pushCursor(lo, w);
-	} else /* (item->flag & AB_ITEM_VAL)*/ {
-		w = NULL;
-	}
-
-	return w;
-}
-
-
-static ab_Wood* ab_firstBranch(ab_Look *lo, ab_Wood *w)
-{
-	ab_Branch *b = (ab_Branch*)w;
-
-	assert(b->sub || (b->flag & AB_BRANCH_VAL));
-
-	AB_D printf("ab_first: branch '%.*s'\n", b->len, b->kdata);
-
-	if (b->sub) {
-		w = b->sub;
-		ab_pushCursor(lo, w);
-	} else /* (b->flag & AB_BRANCH_VAL) */ {
-		w = NULL;
-	}
-
-	return w;
-}
-
-
-static ab_Wood* ab_firstNext(ab_Look *lo, ab_Wood *current, ab_char *buf,
-                                                  int buflen, int bottom)
-{
-	ab_Wood *r;
-
-	switch(ab_kind(current)) {
-		case AB_NODE: {
-			int letter;
-
-			r = ab_firstNode(lo, current, &letter, bottom);
-
-			if (lo->klen < buflen) {
-				lo->key[lo->klen] = letter;
-				lo->klen++;
-			}
-
-			break;
-		}
-
-		case AB_BRANCH: {
-			if (lo->klen < buflen) {
-				ab_Branch *b = (ab_Branch*)current;
-				int n;
-
-				n = AB_MIN(buflen - lo->klen, b->len);
-
-				memcpy(lo->key + lo->klen, b->kdata, n);
-
-				lo->klen += n;
-			}
-
-			r = ab_firstBranch(lo, current);
-
-			break;
-		}
-
-		default:
-			AB_WRONGTYPE();
-	}
-
-	return r;
-}
 
 
 static void ab_setCursor(ab_Cursor *c, ab_Wood *wood)
@@ -1781,6 +1692,9 @@ int ab_lookupIter(ab_Look *lo)
 	if (lo->status != AB_LKUP_INIT)
 		return false;
 
+	assert(lo->key);
+	assert(lo->klen);
+
 	AB_D printf("lo key[%d/%d] = '%c'\n", lo->kpos,
 	            lo->klen, lo->key[lo->kpos]);
 
@@ -1954,32 +1868,68 @@ void* ab_del(ab_Look *lo)
 
 
 /*
- * ab_first search the first (or last if `bottom` is true) element in the trie.
+ * ab_lookupFirst search the first element in the trie.
  *
- * The key of this element can be stored in an optional buffer `buf` of
- * size `buflen`. If the key is bigger of `buflen` it will be truncated.
+ * The key of this element can be stored in an optional buffer
+ * `resultkey `with  max size `maxlen`.
+ * If the key is bigger than `maxlen` it will be truncated.
  *
- * If `buf` is NULL `buflen` must be 0.
+ * If `key` is NULL `maxlen` must be 0.
  *
- * The function return -1 if the trie is empty otherwise return the min
- * of key size and `buflen`.
+ * The function return 0 if the trie is empty otherwise return the
+ * exact length of the first word in the trie
  *
  */
-int ab_first(ab_Look *lo, ab_Trie *trie, ab_char *buf, int buflen, int bottom)
+int ab_lookupFirst(ab_Look *lo, ab_char *resultkey, int maxlen)
 {
-	ab_Wood *w = trie->root;
+	ab_Cursor c;
+	int i = 0;
 
-	/* lo->klen is used as index */
-	if (!ab_lookupStart(lo, trie, buf, 0))
-		return -1;
+	if (!ab_start(lo->trie, &c))
+		return 0;
 
-	while(w) {
-		w = ab_firstNext(lo, w, buf, buflen, bottom);
+	if (lo) {
+		assert(lo->status == AB_LKUP_INIT);
+		assert(lo->ipath == 0);
 	}
 
-	lo->kpos = lo->klen - 1;
-	lo->status = AB_LKUP_FOUND;
-	return lo->klen;
+	while(1) {
+		if ((resultkey) && (i < maxlen))
+			resultkey[i] = ab_letter(&c);
+
+		i++;
+
+		if (lo)
+			ab_follow(lo, &c);
+
+		if (!ab_forward(&c, &c))
+			break;
+	}
+
+	return i;
+}
+
+
+
+int ab_pop(ab_Trie *trie, void **value, ab_char *removedkey, int maxlen)
+{
+	ab_Cursor c;
+	ab_Look lo;
+	int len;
+
+	if (!ab_start(trie, &c))
+		return 0;
+
+	ab_lookupStart(&lo, trie, NULL, 0);
+
+	len = ab_lookupFirst(&lo, removedkey, maxlen);
+
+	if (value)
+		*value = ab_get(&lo);
+
+	ab_del(&lo);
+
+	return len;
 }
 
 
